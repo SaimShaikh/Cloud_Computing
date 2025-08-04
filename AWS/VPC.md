@@ -8,6 +8,7 @@
 
 ---
 
+
 ## Why Use AWS VPC?
 
 - **Isolation:** Secure, private environment for AWS resources.
@@ -113,5 +114,12 @@
 | Client VPN           | No                      | Yes                         | Secure remote user access              |
 
 ---
+## 📌 Example
 
+Imagine a company sets up a VPC like this:
+
+- **Public Subnet**: Hosts a web server (EC2)  
+- **Private Subnet**: Hosts a database (RDS)  
+- The web server talks to the internet and the database; the database never talks to the internet.
+  
 **Tip:** Always consult the AWS VPC documentation and pricing page for the latest details before deploying your VPC solution.
