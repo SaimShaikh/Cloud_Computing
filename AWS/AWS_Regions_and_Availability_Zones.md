@@ -1,0 +1,46 @@
+# 🌍 AWS Regions and Availability Zones
+
+---
+
+## 🗺️ Region
+
+A **Region** is a **geographical location** where AWS hosts its data centers. Each region is an **independent area** that consists of multiple Availability Zones (AZs).
+
+### 🔹 Examples of Regions:
+- `us-east-1` → North Virginia, USA
+- `ap-south-1` → Mumbai, India
+- `eu-west-1` → Ireland
+
+### ✅ Key Points:
+- Regions are isolated from each other.
+- You choose a region based on **latency**, **data residency**, and **compliance**.
+- Services and pricing may differ across regions.
+
+---
+
+## 🏢 Availability Zone (AZ)
+
+An **Availability Zone (AZ)** is one or more discrete **data centers** within a region. Each AZ is isolated but connected with **high-speed, low-latency links** to other AZs in the same region.
+
+### 🔹 Examples of AZs:
+- `ap-south-1a`
+- `ap-south-1b`
+- `us-east-1a`
+
+### ✅ Key Points:
+- Each AZ has independent **power**, **cooling**, and **networking**.
+- Used to design fault-tolerant and **highly available** applications.
+- Placing resources across AZs protects against data center failure.
+
+---
+
+## 🧠 Summary
+
+| Term                  | Description                                               |
+|-----------------------|----------------------------------------------------------|
+| **Region**            | Geographic area (e.g., Mumbai, Ohio, Tokyo)              |
+| **Availability Zone** | Isolated data centers within a region (e.g., ap-south-1a)|
+
+---
+
+*Using multiple Availability Zones within a Region ensures high availability and resilience for your applications.*
