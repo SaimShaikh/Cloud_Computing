@@ -25,11 +25,16 @@ AWS offers **Elastic Load Balancing (ELB)** to automatically distribute incoming
 <img width="2151" height="1560" alt="image" src="https://github.com/user-attachments/assets/b938f5fa-2e26-4516-bb84-751b1c1b04b3" />
 
 ---
-<img width="2151" height="1560" alt="image" src="https://github.com/user-attachments/assets/15f36e1f-06c6-42e3-bb3c-743de605ae39" />
-
 ## Without  Load Balancer 
 
-## 🔍 Load Balancer Details
+<img width="2151" height="1560" alt="image" src="https://github.com/user-attachments/assets/15f36e1f-06c6-42e3-bb3c-743de605ae39" />
+
+---
+
+
+<img width="1525" height="696" alt="Screenshot 2025-08-07 at 1 46 04 PM" src="https://github.com/user-attachments/assets/318520f0-e32d-4913-81dd-00841bfb0ed0" />
+
+## 🔍 Load Balancer Types in Details 
 
 ### 🟩 Application Load Balancer (ALB)
 - **Use Case**: Web apps, REST APIs, microservices
