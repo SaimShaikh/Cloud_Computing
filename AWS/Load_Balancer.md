@@ -21,11 +21,11 @@ AWS offers **Elastic Load Balancing (ELB)** to automatically distribute incoming
 | **Classic Load Balancer (CLB)**     | HTTP, HTTPS, TCP, SSL    | Legacy applications                    | Layer 4 & 7 |
 
 ---
-## with Load Balancer 
+## without Load Balancer 
 <img width="2151" height="1560" alt="image" src="https://github.com/user-attachments/assets/b938f5fa-2e26-4516-bb84-751b1c1b04b3" />
 
 ---
-## Without  Load Balancer 
+## With  Load Balancer 
 
 <img width="2151" height="1560" alt="image" src="https://github.com/user-attachments/assets/15f36e1f-06c6-42e3-bb3c-743de605ae39" />
 
