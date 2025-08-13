@@ -144,7 +144,18 @@ Step 3.
 - server 2
 <img width="3318" height="1986" alt="image" src="https://github.com/user-attachments/assets/e8d4c2bf-607d-4e74-95f3-c071a28e902b" />
 
+---
+
 # Nginx on is running on  :81
 
 <img width="3285" height="797" alt="image" src="https://github.com/user-attachments/assets/839ed5fb-de2e-4700-a0d7-9dc5f262ef41" />
 
+---
+
+## 🧹 Clean Up
+- Delete ALB
+- Delete Target Groups
+- Terminate EC2 instances
+- Delete Security Group
+
+  # Do like if its help you 😊
