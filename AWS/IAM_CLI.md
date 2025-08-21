@@ -1,7 +1,11 @@
+# AWS CLI WITH IAM USER
 
+---
+- Step 1 : Create IAM User with no Console login. 
 <img width="3311" height="1143" alt="image" src="https://github.com/user-attachments/assets/6c2e3f7d-dea9-4d14-8940-5fb03933046c" />
-<img width="3311" height="1143" alt="image" src="https://github.com/user-attachments/assets/6253b34f-c624-4db7-8cf4-38e3dc1fdbeb" />
+Step 2 : Add Policy like Admin Access or You can add only S3 buckets Policy 
 <img width="3224" height="811" alt="image" src="https://github.com/user-attachments/assets/9e4f4a0b-ffed-44b2-844e-e30341e7d010" />
+
 <img width="3266" height="1501" alt="image" src="https://github.com/user-attachments/assets/356d8e73-530b-469a-8a7b-24f70df8a11d" />
 <img width="2750" height="1185" alt="image" src="https://github.com/user-attachments/assets/e460171b-5ede-450a-94dc-bf8b82288e15" />
 <img width="2826" height="560" alt="image" src="https://github.com/user-attachments/assets/1221fb43-4a8e-4a57-8ab8-ecd31d6d2e1a" />
