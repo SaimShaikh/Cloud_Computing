@@ -8,11 +8,17 @@ Step 2 : Add Policy like Admin Access or You can add only S3 buckets Policy
 
 <img width="3266" height="1501" alt="image" src="https://github.com/user-attachments/assets/356d8e73-530b-469a-8a7b-24f70df8a11d" />
 <img width="2750" height="1185" alt="image" src="https://github.com/user-attachments/assets/e460171b-5ede-450a-94dc-bf8b82288e15" />
+
+- Step 3 : Create Assess Keys for CLI Login
 <img width="2826" height="560" alt="image" src="https://github.com/user-attachments/assets/1221fb43-4a8e-4a57-8ab8-ecd31d6d2e1a" />
 <img width="3009" height="686" alt="image" src="https://github.com/user-attachments/assets/c0690102-0ce8-4765-92e1-2da7926d6a63" />
+- Step 4 : Launch EC2 Machine 
 <img width="3334" height="1116" alt="image" src="https://github.com/user-attachments/assets/211075fa-64ed-4577-a8fa-7d9640be6cfc" />
+- Step 5 : Install unzip if you have ubuntu os
 <img width="1761" height="183" alt="image" src="https://github.com/user-attachments/assets/06246862-bbc2-4761-b3c1-49bf903ea066" />
+- Step 6 : Install AWS CLI
 <img width="3345" height="301" alt="image" src="https://github.com/user-attachments/assets/27dad80f-5b55-44be-b028-77f45e48dc62" />
+
 <img width="2237" height="200" alt="image" src="https://github.com/user-attachments/assets/281e9796-dfe2-4c80-b9f4-80ee9b0568ba" />
 <img width="1680" height="419" alt="image" src="https://github.com/user-attachments/assets/223dbb56-f9b9-423f-9ffe-6358e603d966" />
 <img width="2188" height="296" alt="image" src="https://github.com/user-attachments/assets/632287e1-d523-4b6a-bdae-0c11e9afe9c5" /> 
