@@ -29,7 +29,8 @@ Step 2 : Add Policy like Admin Access or You can add only S3 buckets Policy
 <img width="1841" height="548" alt="image" src="https://github.com/user-attachments/assets/4151cb9b-8274-45fc-a517-b8072dd8c6fc" />
 - Step 9 : Create on simple file for transfer on bucket 
 <img width="2270" height="129" alt="image" src="https://github.com/user-attachments/assets/5f6d4b08-7188-4549-a7db-1d22755544aa" />
-<img width="2185" height="145" alt="image" src="https://github.com/user-attachments/assets/34d819cc-561c-47ec-b5b2-5645cf939453" />
 <img width="2749" height="719" alt="image" src="https://github.com/user-attachments/assets/6d5fed70-f357-42ff-865e-b3af91257618" />
+<img width="2185" height="145" alt="image" src="https://github.com/user-attachments/assets/34d819cc-561c-47ec-b5b2-5645cf939453" />
+
 <img width="1898" height="109" alt="image" src="https://github.com/user-attachments/assets/009927f9-8fe3-452c-aaec-61196116f397" />
 <img width="1818" height="685" alt="image" src="https://github.com/user-attachments/assets/51dfaf28-23ec-4903-aa16-d43f6c738746" />
