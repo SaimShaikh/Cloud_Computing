@@ -25,8 +25,9 @@ Step 2 : Add Policy like Admin Access or You can add only S3 buckets Policy
 - Step 8 : Create AWS S3 using CLI Commands 
 <img width="2214" height="796" alt="image" src="https://github.com/user-attachments/assets/93466ab5-bcbd-40cf-a395-1738be35183b" />
 <img width="1925" height="117" alt="image" src="https://github.com/user-attachments/assets/446ccdbd-1512-44e2-b704-57785cd5417f" />
-- Step 9 : Create on simple file for transfer on bucket 
+
 <img width="1841" height="548" alt="image" src="https://github.com/user-attachments/assets/4151cb9b-8274-45fc-a517-b8072dd8c6fc" />
+- Step 9 : Create on simple file for transfer on bucket 
 <img width="2270" height="129" alt="image" src="https://github.com/user-attachments/assets/5f6d4b08-7188-4549-a7db-1d22755544aa" />
 <img width="2185" height="145" alt="image" src="https://github.com/user-attachments/assets/34d819cc-561c-47ec-b5b2-5645cf939453" />
 <img width="2749" height="719" alt="image" src="https://github.com/user-attachments/assets/6d5fed70-f357-42ff-865e-b3af91257618" />
