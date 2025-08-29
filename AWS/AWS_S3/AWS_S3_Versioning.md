@@ -42,7 +42,7 @@ I made small change in my index.html code to see versions
 Step 4. Check your Object list you can see a new version of index.html has been created
 <img width="3321" height="1306" alt="image" src="https://github.com/user-attachments/assets/0b255462-13b2-4859-ab74-d834e2e8e1ae" />
 
-# After that if you Delete new update index.html s3 automatically shifts back to ol version
+# After that if you Delete new update index.html s3 automatically shifts back to old version
 
 
 Step 5. Refresh you websute tab and see Output
