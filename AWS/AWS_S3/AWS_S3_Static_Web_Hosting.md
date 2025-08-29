@@ -72,7 +72,7 @@ Step 13 Now go to Amazon S3 > Buckets > Your Bucket name > Properties and Scroll
 <img width="3321" height="2016" alt="image" src="https://github.com/user-attachments/assets/4266856f-b0ef-4538-965e-16cc18c74b75" />
 
 
-
+-  Download code https://github.com/SaimShaikh/Cloud_Computing/blob/main/AWS/AWS_S3/AWS_S3_Zip.md
 
 
 
