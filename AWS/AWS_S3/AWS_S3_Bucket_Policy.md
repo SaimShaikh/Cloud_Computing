@@ -35,4 +35,3 @@ Key Points
 }
 ```
 
-[untitled folder.zip](https://github.com/user-attachments/files/22048093/untitled.folder.zip)
