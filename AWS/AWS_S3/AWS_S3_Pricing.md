@@ -1,4 +1,4 @@
-# Amazon S3 Pricing — A Practical Guide (README)
+# Amazon S3 Pricing 
 
 > **Last verified:** August 29, 2025 · **Region shown in examples:** US East (N. Virginia) `us-east-1`
 >
