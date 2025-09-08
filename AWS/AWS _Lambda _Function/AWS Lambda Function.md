@@ -307,20 +307,5 @@ A: Use IAM roles attached to Lambda and grant minimal permissions. Avoid long-li
 
 ---
 
-## References & Further Reading
 
-* AWS Lambda Developer Guide (official)
-* AWS SAM Developer Guide
-* Serverless Framework docs
-* Terraform AWS Provider — `aws_lambda_function`
-
----
-
-## License
-
-This document is provided as-is under the MIT License. Use, adapt, and improve.
-
----
-
-*If you want: I can add specific deployment code for Terraform, a full GitHub Actions workflow with tests, or a sample multi-function SAM app. Tell me which language/runtime and I'll tailor the examples.*
 
