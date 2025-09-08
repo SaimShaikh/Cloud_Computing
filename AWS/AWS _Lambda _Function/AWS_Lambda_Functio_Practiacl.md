@@ -45,6 +45,7 @@ def lambda_handler( event, context):
 
 ---
 ### Create or Download ( [requests-layer.zip](https://github.com/user-attachments/files/22216772/requests-layer.zip) ) requests zip if you don’t have and upload in Step 8 
+Use Any Terminal 
 ```bash
 mkdir -p python <or any name you want>
 pip install --target ./python requests
