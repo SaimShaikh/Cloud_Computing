@@ -31,7 +31,7 @@ This ensures **high availability, performance, and cost optimization**.
 
 ## ⚙️ Types of Scaling
 
-<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/5d61cfe3-c50c-4fed-a242-87ac8e4f1707" />
+<img width="550" height="550" alt="image" src="https://github.com/user-attachments/assets/5d61cfe3-c50c-4fed-a242-87ac8e4f1707" />
 
 1. **Vertical Scaling (Scale Up/Down)**  
    - Increase or decrease the **size** of an instance (e.g., t2.micro → t2.large).  
