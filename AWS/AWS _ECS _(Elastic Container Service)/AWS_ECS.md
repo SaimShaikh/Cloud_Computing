@@ -1,4 +1,4 @@
-<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/1c307908-1542-43c5-9841-532dd0ff7417" />
+<img width="520" height="520" alt="image" src="https://github.com/user-attachments/assets/1c307908-1542-43c5-9841-532dd0ff7417" />
 
 # 🚀 AWS Elastic Container Service (ECS)
 
