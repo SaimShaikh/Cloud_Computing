@@ -41,4 +41,9 @@ Step 5. Copy Public IP
 
 <img width="3334" height="1653" alt="image" src="https://github.com/user-attachments/assets/79c8b5b9-7bdf-47f4-a22c-03f49ddc75d5" />
 
+### You can also check Container logs
 <img width="3299" height="1897" alt="image" src="https://github.com/user-attachments/assets/eaa989a2-04e6-4041-a265-0d37f94a7e3a" />
+
+---
+
+> After practical Delete all things 
