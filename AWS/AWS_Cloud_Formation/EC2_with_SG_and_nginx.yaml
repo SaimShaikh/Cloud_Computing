@@ -1,0 +1,45 @@
+# This template will create EC2 with Nginx and a sample webpage, Security Group to allow HTTP and an Elastic IP
+Resources:
+  SimpleEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-02db68a01488594c5 # Replace with a valid AMI ID for your region
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      Tags:
+        - Key: Name
+          Value: MySimpleInstance # Replace with your desired instance name
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum update -y
+          yum install -y nginx
+          systemctl start nginx
+          systemctl enable nginx
+
+          # Create a sample index.html file
+          echo "<html>
+          <head>
+            <title>Welcome to Nginx on AWS</title>
+          </head>
+          <body>
+            <h1>SAMPLE WEBPAGE Using CloudFormation</h1>
+            <p>This is a sample webpage served by Nginx on an AWS EC2 instance.</p>
+          </body>
+          </html>" > /usr/share/nginx/html/index.html
+
+  InstanceSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Enable HTTP access"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0 # Allows HTTP access from anywhere (use with caution)
+
+  ElasticIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      InstanceId: !Ref SimpleEC2Instance
