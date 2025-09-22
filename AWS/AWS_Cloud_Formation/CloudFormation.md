@@ -36,7 +36,7 @@ You want reproducible, versioned infrastructure that your team can review in PRs
 ---
 
 ## What is CloudFormation?
-**AWS CloudFormation** is AWS's Infrastructure as Code (IaC) service that models and provisions AWS and third-party resources using templates (YAML/JSON). You describe desired resources in a template, and CloudFormation creates, updates, or deletes them as a single unit called a *stack*. :contentReference[oaicite:0]{index=0}
+**AWS CloudFormation** is AWS's Infrastructure as Code (IaC) service that models and provisions AWS and third-party resources using templates (YAML/JSON). You describe desired resources in a template, and CloudFormation creates, updates, or deletes them as a single unit called a *stack*.
 
 ---
 
@@ -49,17 +49,17 @@ You want reproducible, versioned infrastructure that your team can review in PRs
 ---
 
 ## Benefits — TL;DR (and why you care)
-- **Repeatability & consistency**: one template = same infra every time. :contentReference[oaicite:2]{index=2}  
+- **Repeatability & consistency**: one template = same infra every time.   
 - **Version control**: store templates in Git, review infra changes in PRs.  
-- **Automation**: integrate with CI/CD — tests then deploy stacks. :contentReference[oaicite:3]{index=3}  
-- **Dependency management**: CloudFormation figures out create/delete order. :contentReference[oaicite:4]{index=4}  
+- **Automation**: integrate with CI/CD — tests then deploy stacks.   
+- **Dependency management**: CloudFormation figures out create/delete order. 
 - **Drift detection & change sets**: preview changes before applying them.  
 - **Extensible**: use modules, macros, and third-party resource providers.
 
 ---
 
 ## Common use cases
-- Bootstrapping environments (dev, staging, prod) with the same baseline infra. :contentReference[oaicite:5]{index=5}  
+- Bootstrapping environments (dev, staging, prod) with the same baseline infra.   
 - CI/CD for infrastructure (automated stack creation / updates).  
 - Multi-stack / nested-stack architectures for large applications.  
 - Standardizing IAM roles, VPCs, networking across accounts.  
