@@ -43,6 +43,9 @@ Step 4. Specify the stack details
 ---
 
 Step 5. OutPut 
+
+<img width="3312" height="1189" alt="image" src="https://github.com/user-attachments/assets/8f3eb01d-a6d9-4141-b49c-3a52bf7f162d" />
+
 <img width="3334" height="1439" alt="image" src="https://github.com/user-attachments/assets/c93168f3-03dc-4b3d-880d-8e0897a1b5fb" />
 
 ---
