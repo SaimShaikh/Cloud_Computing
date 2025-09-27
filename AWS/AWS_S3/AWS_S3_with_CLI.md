@@ -34,12 +34,18 @@
 
 ---
 - Step 5 : Install unzip if you have ubuntu os
+  ```sudo apt install unzip -y```
   
 <img width="1761" height="183" alt="image" src="https://github.com/user-attachments/assets/06246862-bbc2-4761-b3c1-49bf903ea066" />
 
 ---
 
 - Step 6 : Install AWS CLI
+ ```bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
 ---
 <img width="3345" height="301" alt="image" src="https://github.com/user-attachments/assets/27dad80f-5b55-44be-b028-77f45e48dc62" />
 
