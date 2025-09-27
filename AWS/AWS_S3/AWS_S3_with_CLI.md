@@ -91,3 +91,19 @@
 <img width="1818" height="685" alt="image" src="https://github.com/user-attachments/assets/51dfaf28-23ec-4903-aa16-d43f6c738746" />
 
 ---
+
+> Basic commands 
+```bash
+aws iam list-users
+aws iam list-roles
+aws iam list-groups
+aws iam list-policies
+
+aws s3 ls
+aws s3 mb s3://my-bucket-name
+aws s3 rb s3://my-bucket-name --force
+aws s3 cp localfile.txt s3://my-bucket-name/
+aws s3 cp s3://my-bucket-name/file.txt ./ --recursive
+aws s3 sync ./local-folder s3://my-bucket-name/
+aws s3 ls s3://my-bucket-name
+```
