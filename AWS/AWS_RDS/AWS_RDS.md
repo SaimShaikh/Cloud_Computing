@@ -93,11 +93,4 @@ Pricing depends on:
 
 ---
 
-## 📚 Resources
-- 📘 [AWS RDS Documentation](https://docs.aws.amazon.com/rds/)  
-- 💰 [AWS Pricing Calculator](https://calculator.aws/#/)  
-- 🛠️ [Best Practices for RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.html)  
-
----
-
 ✨ With **Amazon RDS**, you don’t babysit servers—you build applications faster and smarter.  
