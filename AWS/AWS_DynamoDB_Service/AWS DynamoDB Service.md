@@ -109,7 +109,7 @@ Here’s a quick breakdown:
 
 ### Overview
 
-Amazon **DynamoDB** is a fully managed NoSQL database service — combining key-value and document models.  
+Amazon **DynamoDB** is a fully managed NoSQL and Serverless database service — combining key-value and document models.  
 It’s built for single-digit millisecond performance at virtually unlimited scale.
 
 Key features:
@@ -143,6 +143,8 @@ Key features:
 - Schema flexibility  
 - Deep integration with AWS services  
 - Durability and AZ redundancy built-in  
+
+<img width="3303" height="1740" alt="image" src="https://github.com/user-attachments/assets/494228db-dabe-47a8-9e7a-b06d2b1a4276" />
 
 **Disadvantages / Limitations**
 
@@ -236,6 +238,7 @@ When to use what: relational when structure and relationships dominate; NoSQL wh
 - Ignoring item size limits, throughput limits, index limits  
 
 ---
+
 
 ## Summary & Recommendations
 
