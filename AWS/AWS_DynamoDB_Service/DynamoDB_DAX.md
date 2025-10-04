@@ -343,22 +343,3 @@ A: Not generally. DAX is DynamoDB‑aware. Redis is great for cross‑service/ge
 
 ---
 
-## 17) Contributing
-
-PRs welcome! Please:
-
-1. Add/adjust examples in `/examples/<lang>`.
-2. Update diagrams if flows change.
-3. Include tests for any code that changes call paths.
-
----
-
-## 18) License
-
-Choose a license (MIT/Apache‑2.0). Add it to `/LICENSE`.
-
----
-
-### Credits
-
-This guide is crafted for teams rolling out DAX in production with a **pragmatic, ops‑first** mindset.
