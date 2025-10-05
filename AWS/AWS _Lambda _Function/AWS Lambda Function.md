@@ -13,6 +13,24 @@ Lambda is ideal for event-driven workloads, microservices, scheduled tasks, ligh
 AWS Lambda is called “serverless” because you don’t manage servers — AWS does.
 But don’t get it twisted — servers still exist.
 They’re just hidden from you. 😏
+
+
+* ⚙️ What Happens Under the Hood
+
+- When you deploy your function to Lambda:
+
+- AWS keeps a pool of compute resources (actual servers under the hood).
+
+- When your function is triggered — AWS automatically provisions one of those servers.
+
+- Your code runs there for a few milliseconds or seconds.
+
+- When done — the server is destroyed or put back in the pool.
+
+- You pay only for the time your code actually ran (not for the idle time).
+
+So yeah — there are servers, but you never see, configure, or maintain them.
+Hence, “Serverless.”
 ---
 
 ### AWS Lambda language support 
