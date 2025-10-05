@@ -12,13 +12,30 @@ Step 2 Create lambda Function and Create Event
 import json
 
 def lambda_handler(event, context):
-    # TODO implement
-    print("New Object added in Bucket")
+    # Loop through all S3 event records
+    for record in event['Records']:
+        event_name = record['eventName']  # e.g., 'ObjectCreated:Put' or 'ObjectRemoved:Delete'
+        bucket = record['s3']['bucket']['name']
+        key = record['s3']['object']['key']
+        
+        # Check event type
+        if event_name.startswith("ObjectCreated"):
+            print(f"✅ New object created in bucket '{bucket}': {key}")
+            
+        elif event_name.startswith("ObjectRemoved"):
+            print(f"🗑️ Object deleted from bucket '{bucket}': {key}")
+            
+        else:
+            print(f"⚠️ Other S3 event detected: {event_name} on {key}")
+
     return {
         'statusCode': 200,
-        'body': json.dumps('Hello from Lambda!')
+        'body': json.dumps('S3 event processed successfully!')
     }
+
 ```
+
+
 
 <img width="1680" height="1050" alt="Screenshot 2025-09-10 at 7 22 46 PM" src="https://github.com/user-attachments/assets/55372cb3-91f8-4e9d-b8dd-d066ed01e324" />
 
