@@ -7,8 +7,12 @@
 
 AWS Lambda is a serverless computing service that lets you run code in response to events without managing servers. 
 You just upload your code, and AWS automatically handles the rest, scaling as needed and only charging for the time your code runs.
-Lambda is ideal for event-driven workloads, microservices, scheduled tasks, lightweight APIs, glue logic, and short-lived processing jobs.
+Lambda is ideal for event-driven workloads, microservices, scheduled tasks, lightweight APIs, and short-lived processing jobs.
 
+* Why is Lambda called serverless?
+AWS Lambda is called “serverless” because you don’t manage servers — AWS does.
+But don’t get it twisted — servers still exist.
+They’re just hidden from you. 😏
 ---
 
 ### AWS Lambda language support 
@@ -58,6 +62,84 @@ Common patterns:
 Event sources include: API Gateway, Application Load Balancer (ALB), S3, DynamoDB Streams, Kinesis Streams, SNS, SQS, EventBridge, CloudWatch Logs subscription.
 
 ---
+
+
+---
+
+## 🕰️ Before Lambda — The Traditional Way
+
+Before AWS Lambda arrived, developers had to **manually manage servers** to run code. Here’s what that looked like:
+
+### You had to:
+
+* Buy or rent servers (EC2, on-premise, etc.)
+* Install OS, runtime, and dependencies
+* Scale manually — more traffic = more servers
+* Keep servers running 24/7 even during idle times
+* Handle patching, monitoring, logging, and maintenance
+
+### Example
+
+If you wanted to process image uploads:
+
+1. Launch an EC2 instance
+2. Write and deploy the image-processing app
+3. Keep the instance running continuously — you pay even when idle
+
+### Common technologies used before
+
+* EC2 / On-prem servers
+* Docker containers
+* Auto Scaling groups
+* Load balancers
+
+All of these required significant infrastructure management — aka "infrastructure babysitting." 👶
+
+---
+
+## ⚙️ After Lambda — The Serverless Way
+
+AWS Lambda changed the game. Instead of managing servers, you focus on small, event-driven functions.
+
+### Now you:
+
+* Write only the function (business logic)
+* Deploy it to AWS Lambda
+* Trigger execution with events (S3, API Gateway, CloudWatch, SNS, etc.)
+* Pay only while the function runs — no idle billing
+* Offload scaling, patching, and server maintenance to AWS
+
+### Example (same image processing case)
+
+Image upload → triggers Lambda → processes image → done. Compute disappears after the function completes, so you don’t pay for idle time.
+
+---
+
+## 🔄 Before vs After Lambda — Quick Comparison
+
+| Feature               | Before Lambda (Traditional) | After Lambda (Serverless) |
+| --------------------- | --------------------------: | ------------------------: |
+| **Server Management** |          You manage servers |    AWS manages everything |
+| **Billing**           |              Pay for uptime | Pay per request & runtime |
+| **Scalability**       |      Manual or auto scaling |       Auto-scale built-in |
+| **Deployment**        |            Deploy whole app |    Deploy single function |
+| **Maintenance**       |        OS updates, patching |     None (AWS handles it) |
+| **Startup Time**      |              Always running |    Cold start (on-demand) |
+| **Use Case Fit**      |           Long-running apps |         Event-driven apps |
+
+---
+
+## TL;DR
+
+* **Before Lambda:** You managed servers and infrastructure. More overhead, more cost during idle time.
+* **After Lambda:** You manage code only. AWS handles scaling and maintenance, billing is per invocation.
+
+
+---
+
+
+---
+
 ### what is event
 In AWS Lambda (and event-driven systems in general), an event is basically a data record that describes something that just happened.
 
@@ -95,6 +177,56 @@ Lambda processes the file (validate, transform, index, etc.), writes result/meta
 
 
 ---
+
+### 💰 AWS Lambda Pricing Explained (with Examples)
+
+* AWS Lambda pricing depends on a few simple factors — understand these and you won’t get surprised by the bill.
+
+1️⃣ Number of Invocations (Requests)
+
+- Each function execution = 1 invocation.
+
+- First 1,000,000 requests/month are free.
+
+- After that, it's roughly $0.20 per 1M requests (varies by region).
+
+- Example: If your function runs 10M times in a month → you pay for 9M requests (since 1M are free) → ~ $1.80.
+
+2️⃣ Duration (Execution Time)
+
+- Billed for how long the function runs (from start to finish), measured in milliseconds (100ms granularity).
+
+- Shorter run time = cheaper.
+
+- Example: Function runs 500ms and is called 1M times → you pay for that total execution time.
+
+3️⃣ Memory Allocation (RAM)
+
+- You select memory from 128 MB to 10,240 MB.
+
+- More memory → more CPU allocation and higher cost per millisecond.
+
+- Pricing scales linearly with memory: 512 MB costs 4× 128 MB for same duration.
+
+4️⃣ Additional Features
+
+- Provisioned Concurrency: Keeps instances warm for lower latency — adds a per-hour and per-invocation cost.
+
+- Data transfer (egress): Standard AWS data transfer charges apply when Lambda sends data out.
+
+- CloudWatch Logs: Lambda writes logs to CloudWatch; excessive logging increases cost.
+
+* ⚙️ Simplified Formula
+Total Cost = (Number of Requests × Request Price)
++ (Duration in seconds × Memory (GB) × GB-second Price)
++ Additional feature costs (Provisioned Concurrency, Data Transfer, Logs)
+
+### Quick example calculation (approximate):
+1M requests × $0.20 per million = $0.20
++ Execution: 128 MB × 100 ms × 1M invocations -> counts toward GB-seconds free tier
+= ~ $0.20 total (very cheap)
+---
+
 ## Troubleshooting & FAQ
 
 **Q: My function times out**
