@@ -204,6 +204,18 @@ Lambda processes the file (validate, transform, index, etc.), writes result/meta
 > 🎒 “A Layer is a backpack that your Lambda function can wear — full of tools (libraries, configs, binaries) it needs.”
 ---
 
+* ⚙️ What is a Trigger in AWS Lambda?
+
+- A trigger is something that automatically starts (invokes) your Lambda function.
+
+ -Basically —
+
+> 🧠 “A trigger is an event source that tells Lambda, ‘Yo, wake up and run this code!’”
+
+> You don’t manually call the function — The trigger calls it for you whenever a certain event happens in AWS or outside of it.
+
+---
+
 ### 💰 AWS Lambda Pricing Explained (with Examples)
 
 * AWS Lambda pricing depends on a few simple factors — understand these and you won’t get surprised by the bill.
