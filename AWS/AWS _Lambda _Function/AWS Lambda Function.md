@@ -194,6 +194,14 @@ Lambda processes the file (validate, transform, index, etc.), writes result/meta
 * Cold Start Delays: If a Lambda function hasn’t run in a while, there’s sometimes a slight delay—called a 'cold start'—when itstarts up. This can add a little latency, but AWS provides ways to mitigate it for critical functions.
 
 
+
+### ⚙️ What is a Lambda Layer?
+
+* A Lambda Layer is basically a shared package of code or dependencies that you can attach to multiple Lambda functions. It’s AWS’s way of letting you reuse libraries or config files without bloating every function’s ZIP.
+
+* Think of it like this:
+
+> 🎒 “A Layer is a backpack that your Lambda function can wear — full of tools (libraries, configs, binaries) it needs.”
 ---
 
 ### 💰 AWS Lambda Pricing Explained (with Examples)
