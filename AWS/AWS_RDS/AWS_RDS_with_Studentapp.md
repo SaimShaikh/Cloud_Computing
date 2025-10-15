@@ -109,7 +109,9 @@ docker run --rm -d -p 3000:3000 \
 ```
 8) ``docker ps # PORTS should show 0.0.0.0:3000->3000/tcp``
 9) COPY EC2 Public IP paste on browser Access the app insert the data 
-10) Output 
+10) Output
+ <img width="1541" height="792" alt="SCR-20251015-nuee" src="https://github.com/user-attachments/assets/77c83d0e-9193-4ead-bfc1-0baa86ac840b" />
+
 11) Check in Your Database
- <img width="1680" height="1050" alt="Screenshot 2025-10-04 at 11 12 57 PM" src="https://github.com/user-attachments/assets/16255b07-981f-4045-88da-f09bb39c738a" />
+<img width="1680" height="1050" alt="Screenshot 2025-10-04 at 11 12 57 PM" src="https://github.com/user-attachments/assets/16255b07-981f-4045-88da-f09bb39c738a" />
 
