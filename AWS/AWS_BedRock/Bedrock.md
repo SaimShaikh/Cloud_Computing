@@ -1,6 +1,7 @@
 # 🧠 AWS Bedrock — The Foundation of Generative AI on AWS
 
-![AWS Bedrock Banner](https://d1.awsstatic.com/product-marketing/Bedrock/Bedrock_Hero.cbc2d3d8a157b55f20e9.png)
+<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/72f6e554-d26f-4944-8416-a87cd01b8402" />
+
 
 > **Build, scale, and deploy Generative AI applications using pre-trained Foundation Models on AWS — without managing infrastructure or training models from scratch.**
 
