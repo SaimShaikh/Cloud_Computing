@@ -20,21 +20,21 @@ Think of CloudWatch as a **doctor's monitoring system** for your cloud infrastru
 
 ### Problems Without CloudWatch:
 
-❌ You won't know if your server is down until customers complain
-❌ Can't see why your application is slow
-❌ No record of what errors happened and when
-❌ Can't prove compliance with regulations (GDPR, HIPAA)
-❌ Wasting money on resources you don't use
-❌ Security breaches go undetected
+- ❌ You won't know if your server is down until customers complain
+- ❌ Can't see why your application is slow
+- ❌ No record of what errors happened and when
+- ❌ Can't prove compliance with regulations (GDPR, HIPAA)
+- ❌ Wasting money on resources you don't use
+- ❌ Security breaches go undetected
 
 ### Solutions With CloudWatch:
 
-✅ See performance in real-time (before problems happen)
-✅ Find performance issues quickly
-✅ Complete record of all events (for debugging)
-✅ Meet compliance requirements
-✅ Optimize spending by seeing actual usage
-✅ Detect suspicious activity
+- ✅ See performance in real-time (before problems happen)
+- ✅ Find performance issues quickly
+- ✅ Complete record of all events (for debugging)
+- ✅ Meet compliance requirements
+- ✅ Optimize spending by seeing actual usage
+- ✅ Detect suspicious activity
 
 ---
 
