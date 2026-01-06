@@ -644,6 +644,8 @@ Several strategies:
 - Check CloudWatch: CPU 90%, requests 5000/sec.
 - Add more instances via auto-scaling or load balance better.
 
+
+ 
 ---
 
 ### Q26. Difference Between Amazon Aurora and Amazon RDS
@@ -765,6 +767,20 @@ Website hosted in us-east-1. User in Tokyo fetches image:
 **Best practice:**
 Define RTO/RPO, then choose appropriate strategy. Don't over-engineer; balance cost and recovery needs.
 
+### Q31. what is inline policy
+An inline policy is an IAM policy that is directly attached to a specific user, group, or role.
+It is used to give permissions only to that identity and cannot be reused.
+Inline policies are mainly used for special or one-time permission requirements.
+
+### Q31.Inline vs managed policy
+An inline policy is directly attached to a single user, group, or role and cannot be reused.
+A managed policy is created separately and can be attached to multiple users, groups, or roles.
+In production environments, managed policies are preferred because they are easier to manage and reuse.
+
+### Q32.IAM Role vs User
+An IAM User is used for people or applications that need long-term access to AWS using credentials.
+An IAM Role is used to provide temporary permissions to AWS services or users without using permanent credentials.
+In production, IAM Roles are preferred for better security.
 ---
 
 ## Quick Recall Tips for AWS Interviews
