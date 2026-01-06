@@ -781,6 +781,7 @@ In production environments, managed policies are preferred because they are easi
 An IAM User is used for people or applications that need long-term access to AWS using credentials.
 An IAM Role is used to provide temporary permissions to AWS services or users without using permanent credentials.
 In production, IAM Roles are preferred for better security.
+
 ---
 
 ## Quick Recall Tips for AWS Interviews
