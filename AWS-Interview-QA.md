@@ -126,10 +126,9 @@ Example: us-east-1 has AZs like us-east-1a, us-east-1b, us-east-1c.
 **ELB** distributes incoming traffic across multiple EC2 instances so no single instance is overloaded.
 
 **Types of Load Balancers:**
-- **Application Load Balancer (ALB)**: For web apps, HTTP/HTTPS. Can route based on URL path or hostname.
-- **Network Load Balancer (NLB)**: For extreme performance, TCP/UDP. Used for gaming, IoT, real-time apps.
-- **Classic Load Balancer (CLB)**: Old, still works but ALB/NLB are preferred.
-
+- ALB works at the application layer and is used for HTTP/HTTPS traffic with smart routing.
+- NLB works at the network layer and is used for high-performance and low-latency traffic.
+- CLB is a legacy load balancer and is mainly used for older applications.
 **How it works:**
 1. Users send requests to the load balancer.
 2. Load balancer checks which instances are healthy (using health checks).
