@@ -785,7 +785,65 @@ An IAM User is used for people or applications that need long-term access to AWS
 An IAM Role is used to provide temporary permissions to AWS services or users without using permanent credentials.
 In production, IAM Roles are preferred for better security.
 
+
+# AWS RDS – Interview Q&A (Simple Words)
+
 ---
+
+### Q33: How does AWS RDS handle backups?
+
+“AWS RDS takes **automatic daily backups** and also allows **manual snapshots**. Automatic backups help us restore the database to any point in time within the retention period.”
+
+
+
+### Q34: Can you change the DB instance class of a running RDS instance?
+ 
+“Yes, we can change the instance size while it is running. It usually causes a **short reboot**, and in Multi-AZ setups, downtime is very minimal.”
+
+---
+
+### Q35: What is Multi-AZ deployment in RDS?
+
+“Multi-AZ means AWS keeps a **backup database in another Availability Zone**. If the main database fails, AWS automatically switches to the standby database.”
+
+---
+
+###  Q36: How is data encrypted in AWS RDS?
+**Answer:**  
+“Data is encrypted **at rest using KMS** and **in transit using SSL/TLS**, which keeps the data secure.”
+
+---
+
+### Q37: What is the purpose of Read Replicas in RDS?
+ 
+“Read Replicas are used to **handle more read traffic**. They reduce load on the main database. They are not used for failover.”
+
+---
+
+### Q38: How can you monitor RDS performance?
+ 
+“We monitor RDS using **CloudWatch**, **Enhanced Monitoring**, and **Performance Insights** to check CPU, memory, and slow queries.”
+
+---
+
+### Q39: Can you install custom software on an RDS instance?
+ 
+“No. RDS is a managed service, so we cannot install custom software or access the OS.”
+
+---
+
+### Q40: What is the purpose of parameter groups in RDS?
+ 
+“Parameter groups are used to **change database settings** like connection limits and logging behavior.”
+
+---
+
+### Q41: How can you scale the storage capacity of an RDS instance?
+ 
+“We can increase the storage size from the AWS console. Storage can be increased but **cannot be reduced**.”
+
+---
+
 
 ## Quick Recall Tips for AWS Interviews
 
