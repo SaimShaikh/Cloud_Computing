@@ -757,6 +757,9 @@ Website hosted in us-east-1. User in Tokyo fetches image:
    - Full app running in multiple regions simultaneously.
    - On disaster, traffic switches instantly.
    - RTO: < 1 minute.
+  
+
+   
 
 **Tools/Services:**
 - **AWS Backup**: Centralized backup service.
