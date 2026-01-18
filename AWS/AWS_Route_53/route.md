@@ -55,14 +55,12 @@ Application Response
 ## Types of Routing Policies in Route 53
 
 ### 1. Simple Routing
-Used when you have one resource.
-Route 53 always returns the same IP address.
+Maps a DNS name to a single resource (e.g., an IP address or an AWS resource like an EC2 instance or S3 bucket). It's ideal for basic, one-to-one DNS resolution and does not support health checks or traffic distribution. 
 
 ---
 
 ### 2. Weighted Routing
-Used to split traffic between resources.
-You can control traffic percentage.
+Distributes traffic among multiple resources based on specified weights (0–255). Useful for A/B testing, gradual rollouts, or load balancing across regions (e.g., 70% to us-east-1, 30% to eu-west-1). 
 
 Example:
 Server A → 70%
@@ -72,7 +70,7 @@ Server B → 30%
 
 ### 3. Latency-Based Routing
 Routes users to the nearest region.
-Helps reduce application delay.
+Helps reduce application delay.Ideal for global applications where performance and speed are critical. 
 
 ---
 
