@@ -838,6 +838,79 @@ In production, IAM Roles are preferred for better security.
  
 “We can increase the storage size from the AWS console. Storage can be increased but **cannot be reduced**.”
 
+
+
+
+## Q42: What is Amazon VPC, and why is it used?
+
+ 
+“Amazon VPC is a private network in AWS where we launch our resources like EC2 and RDS. It is used to control IP ranges, subnets, routing, and security.”
+
+
+
+## Q43 What is the significance of CIDR notation in VPC?
+
+ 
+“CIDR notation defines the IP address range of the VPC. It decides how many IPs are available for resources inside the VPC.”
+
+
+
+## Q44 How are subnets used in Amazon VPC?
+
+
+“Subnets divide a VPC into smaller networks. They help organize resources and decide whether resources are public or private.”
+
+
+
+## Q45 What is the purpose of a VPC's main route table?
+
+ 
+“The main route table controls how traffic moves inside the VPC. By default, it allows communication within the VPC.”
+
+
+
+## Q46 How does Network Address Translation (NAT) work in a VPC?
+
+ 
+“NAT allows private instances to access the internet for updates, but it blocks incoming traffic from the internet.”
+
+
+
+## Q47 Explain the difference between a VPC peering connection and a VPN connection.
+
+ 
+“VPC peering connects two VPCs directly using AWS’s network. VPN connects on-premises networks to AWS over the internet using encryption.”
+
+
+
+## Q48 What is an Elastic IP (EIP), and when would you use it in a VPC?
+
+ 
+“An Elastic IP is a static public IP address. It is used when we need a fixed IP for servers like web servers or NAT gateways.”
+
+
+
+## Q49 How can you secure communication between instances in a VPC?
+
+ 
+“We use security groups, network ACLs, private subnets, and encryption to secure communication between instances.”
+
+
+
+## Q50 What is a VPC endpoint, and why would you use it?
+
+ 
+“A VPC endpoint allows private access to AWS services like S3 without using the internet, which improves security.”
+
+
+
+## Q52 How do you troubleshoot connectivity issues in a VPC?
+
+“I check security groups, NACLs, route tables, subnet configuration, and internet or NAT gateways step by step.”
+
+
+
+
 ---
 
 
