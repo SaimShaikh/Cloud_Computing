@@ -908,6 +908,106 @@ In production, IAM Roles are preferred for better security.
 
 “I check security groups, NACLs, route tables, subnet configuration, and internet or NAT gateways step by step.”
 
+## Q53: You need to deploy a high-availability web application across multiple Availability Zones (AZs). How would you configure the VPC?
+
+
+“I would create a VPC with multiple subnets across different AZs. I’d place the web servers behind a load balancer and use security groups and route tables properly to allow traffic.”
+
+
+
+##  Q54: Your company wants to restrict access to a VPC to a specific set of IP addresses. How can you accomplish this?
+
+
+“We can restrict access using security groups and network ACLs by allowing traffic only from specific IP address ranges.”
+
+
+
+## Q55: You need secure, encrypted communication between your on-premises network and AWS VPC. What options are available?
+
+ 
+“We can use a Site-to-Site VPN or AWS Direct Connect with VPN to create secure and encrypted communication.”
+
+
+
+## Q56: A company has deployed multiple VPCs in different regions but wants a unified network. How can you achieve inter-region connectivity?
+
+ 
+“We can use VPC peering, Transit Gateway, or VPN connections to connect VPCs across regions.”
+
+
+
+##  Q57: An application running in a VPC needs access to an external API without direct internet access. How can this be achieved?
+
+ 
+“We can use a NAT Gateway or a proxy server in a public subnet to access the external API.”
+
+
+
+## Q58: You need to allow EC2 instances in private subnets to access S3 buckets without internet access. What is the best solution?
+
+
+“The best solution is to use a VPC Endpoint for S3, which allows private access without using the internet.”
+
+
+##  Q59: Your company wants to monitor and log network traffic between subnets and instances within a VPC. How would you set this up?
+
+
+“We can enable VPC Flow Logs to capture and log network traffic for monitoring and troubleshooting.”
+
+
+
+## Q60: An EC2 instance in a public subnet is unable to connect to the internet. What troubleshooting steps would you take?
+
+ 
+“I would check the route table, internet gateway attachment, security group rules, network ACLs, and ensure the instance has a public IP.”
+
+
+
+## Q61: How would you isolate a specific workload in a VPC so it is accessible only within the VPC?
+
+“I would place the workload in a private subnet and restrict access using security groups and network ACLs.”
+
+
+
+## Q62: You’re tasked with configuring a multi-tier architecture in a VPC. Describe the subnet configuration.
+
+  
+“I would create public subnets for the load balancer, private subnets for application servers, and separate private subnets for databases.”
+
+
+
+## Q63: Your company wants a secure way to connect hundreds of VPCs. How would you implement this?
+
+ 
+“I would use AWS Transit Gateway to centrally connect and manage multiple VPCs securely.”
+
+
+
+## Q64: You’re asked to set up DNS resolution within a VPC. What would you configure?
+
+
+“I would enable DNS resolution and DNS hostnames in the VPC and use Route 53 for DNS management.”
+
+
+
+## Q 65: A VPC needs to support IPv6. What steps are involved?
+
+
+“I would assign an IPv6 CIDR block to the VPC, update subnets, route tables, and security rules to support IPv6 traffic.”
+
+
+
+## Q66: You need to enable cross-account access for resources in a VPC. What would you use?
+
+ 
+“We can use IAM roles, resource-based policies, or VPC peering depending on the access requirement.”
+
+
+
+##  Q67: How would you migrate an on-premises application to AWS while maintaining the same IP range in the VPC?
+
+
+“We can use AWS VPN or Direct Connect and create a VPC with a CIDR range that matches the on-premises network.”
 
 
 
