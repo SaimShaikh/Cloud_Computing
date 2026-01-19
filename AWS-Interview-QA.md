@@ -601,7 +601,7 @@ Several strategies:
 
 ### Q24. AWS Direct Connect
 
-**Direct Connect** is a dedicated network connection from your on-prem to AWS.
+AWS Direct Connect is a cloud service that provides a dedicated, private network connection between your on-premises infrastructure and AWS, bypassing the public internet for improved performance, security, and lower latency. It supports connections at speeds of 1 Gbps, 10 Gbps, 100 Gbps, or 400 Gbps,
 
 **Benefits:**
 - **Consistent network performance**: Dedicated connection, not shared internet.
