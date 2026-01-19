@@ -1009,9 +1009,100 @@ In production, IAM Roles are preferred for better security.
 
 “We can use AWS VPN or Direct Connect and create a VPC with a CIDR range that matches the on-premises network.”
 
+## Q68 What is a Placement Group?
 
+AWS decides **where your instances sit physically** inside the data center.
+
+Placement Groups are used when **performance and availability actually matter**.
+
+- ⚡ Low latency  
+- 🚀 High network performance  
+- 🛡️ High availability / fault tolerance  
+
+## 🔹 Types of Placement Groups
+
+AWS provides **3 types of Placement Groups**:
+
+## 1️⃣ Cluster Placement Group
+
+⚡ **High performance, low latency**
+
+### Explanation (Simple)
+All EC2 instances are placed **close together** on the **same rack or within a single AZ**.
+
+### Use Cases
+- Big Data processing  
+- High Performance Computing (HPC)  
+- Machine learning workloads  
+- High-throughput applications  
+
+### ✅ Pros
+- Extremely fast network  
+- Very low latency  
+
+### ❌ Cons (Reality check)
+- Single hardware failure can impact **multiple instances**
+- Not fault-tolerant  
+
+### 🎯 Interview Line
+> “Cluster placement group is used for high-performance workloads requiring low latency.”
+
+
+
+## 2️⃣ Spread Placement Group
+
+🛡️ **Maximum availability**
+
+### Explanation
+Each EC2 instance is placed on **separate physical hardware**, minimizing the risk of failure.
+
+### Limits
+- Maximum **7 instances per Availability Zone**
+
+### Use Cases
+- Critical applications  
+- Small workloads that **must not fail together**  
+
+### ✅ Pros
+- Best fault tolerance  
+- Reduced risk of simultaneous failures  
+
+### ❌ Cons
+- Cannot scale for large systems  
+
+### 🎯 Interview Line
+> “Spread placement group reduces the risk of simultaneous instance failure.”
+
+
+## 3️⃣ Partition Placement Group
+
+⚖️ **Balanced & scalable**
+
+### Explanation
+Instances are divided into **multiple partitions**, and each partition runs on **separate hardware**.
+
+### Key Point
+- Failure in **one partition does NOT affect others**
+
+### Use Cases
+- Apache Kafka  
+- Hadoop  
+- HDFS  
+- Large distributed systems  
+
+### ✅ Pros
+- Scales to **hundreds of instances**  
+- Better fault isolation than Cluster placement group  
+
+### ❌ Cons
+- Slightly higher latency than Cluster placement group  
+
+### 🎯 Interview Line
+> “Partition placement groups are ideal for large distributed systems requiring fault isolation.”
 
 ---
+
+
 
 
 ## Quick Recall Tips for AWS Interviews
