@@ -1100,7 +1100,17 @@ Instances are divided into **multiple partitions**, and each partition runs on *
 ### 🎯 Interview Line
 > “Partition placement groups are ideal for large distributed systems requiring fault isolation.”
 
+
+
+## Q69 what is standard access control list
+A standard ACL allows or denies traffic based only on the source IP address.It does not check destination IP, port number, or protocol.
+
+## Q70 what is Extended ACL
+An Extended Access Control List (ACL) is a type of ACL that filters traffic based on source IP, destination IP, protocol, and port numbers. It provides more control and security than a standard ACL.”
+
 ---
+
+
 
 
 
