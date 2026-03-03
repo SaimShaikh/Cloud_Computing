@@ -245,10 +245,9 @@ Acts like a firewall for an entire subnet.
 1. **Geolocation Routing**: Route users to the nearest server based on their location.  
    Example: Users in US go to AWS region us-east-1; users in Europe go to eu-west-1.
 
-2. **Latency-Based Routing**: Route to the region with the lowest latency to the user.
+2. **Latency-Based Routing**:Latency-Based Routing (LBR) is a DNS routing policy that sends users to the AWS region that gives them the lowest network latency (fastest response time).
 
-3. **Health Checks**: Continuously monitor your endpoints.  
-   If an endpoint is unhealthy, Route 53 stops sending traffic to it.
+3. **Health Checks**: Continuously monitor your endpoints. If an endpoint is unhealthy, Route 53 stops sending traffic to it.
 
 4. **Failover Routing**: If primary endpoint fails, automatically switch to standby.
 
