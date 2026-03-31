@@ -241,7 +241,8 @@ stress --cpu 2 --timeout 300
 * CloudWatch alarm triggers
 * SNS sends email notification
 
-<img width="2764" height="1578" alt="image" src="https://github.com/user-attachments/assets/73608314-d347-4f87-b8fe-fd437cfd3d41" />
+
+<img width="2828" height="1666" alt="image" src="https://github.com/user-attachments/assets/990f95ea-bace-4d86-b6aa-91482e7e1ec2" />
 
 
 ---
