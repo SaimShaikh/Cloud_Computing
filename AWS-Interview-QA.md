@@ -1233,5 +1233,109 @@ CloudWatch Events (Amazon EventBridge) react to things happening in AWS (like an
 
 ---
 
+## Q85 What is AWS CloudTrail?
+
+AWS CloudTrail is used for logging and monitoring all API calls and user activities in an AWS account. It helps in security auditing, compliance, and troubleshooting by providing detailed event history
+
+---
+
+## Q86 What type of information does AWS CloudTrail record?
+
+Key information CloudTrail captures
+👤 User Identity
+IAM user/role, root user, or service
+⚙️ Event Name (Action)
+Example: RunInstances, DeleteBucket
+🕒 Timestamp
+Exact date and time of the event
+🌐 Source IP Address
+Where the request came from
+🖥️ Request Parameters
+What inputs were used (e.g., instance type)
+📦 Response Elements
+Output/result of the action
+📍 AWS Region
+Where the action was performed
+🔐 Authentication Details
+MFA used or not, access type
+
+---
+
+
+## Q89 How does AWS CloudTrail store its data?
+
+CloudTrail delivers log files in JSON format to an S3 bucket for durable storage, and it can also send events to CloudWatch Logs for real-time monitoring.
+
+---
+
+## Q90 What is a CloudTrail trail?
+
+A CloudTrail trail is used to enable logging in AWS by defining what events to capture and where to store them, such as in an S3 bucket or CloudWatch Logs.
+
+
+---
+
+## Q91 Types of Trails in AWS CloudTrail
+
+1️⃣ Single-Region Trail
+Logs events from only one AWS region
+Example: only ap-south-1 (Mumbai)
+Used when you want region-specific tracking
+
+💬 Interview line:
+“Single-region trail captures events only from a specific AWS region.”
+
+2️⃣ Multi-Region Trail (🔥 Best Practice)
+Logs events from all regions in your AWS account
+Automatically includes new regions
+Provides complete visibility across AWS
+
+💬 Interview line:
+“Multi-region trail captures activity across all AWS regions and is recommended for security and auditing.”
+
+
+---
+
+
+## Q92 What is Event in CloudTrail and Its types 
+
+An event is a record of any action performed in your AWS account.
+
+1️⃣ Management Events (Most important)
+Track control-plane operations
+Used for managing resources
+
+📌 Examples:
+
+Create EC2 instance
+Delete S3 bucket
+Modify IAM role
+
+👉 Enabled by default
+
+2️⃣ Data Events
+Track data-level operations
+More detailed and high-volume
+
+📌 Examples:
+
+Upload/download file in S3
+Invoke Lambda function
+
+👉 Disabled by default (extra cost)
+
+3️⃣ Insights Events
+Detect unusual activity patterns
+
+📌 Examples:
+
+Sudden spike in API calls
+Abnormal number of errors
+
+👉 Used for security monitoring
+
+
+---
+
 
 
