@@ -1109,58 +1109,129 @@ An Extended Access Control List (ACL) is a type of ACL that filters traffic base
 
 ---
 
+## Q71 How to configure an EC2 server as a private one?
 
+Basically, a private EC2 means the server is not exposed to the internet.
 
+So what I do is — I launch the EC2 inside a private subnet in a VPC, and I make sure it doesn’t get any public IP. Also, that subnet doesn’t have a route to the Internet Gateway, so no one from outside can directly access it.
 
+If I need to connect to that server, I either use a bastion host or, better, I use AWS Systems Manager Session Manager, so I don’t have to open SSH ports at all.
 
+And if the server needs internet—for updates or installing packages—I use a NAT Gateway, which allows only outbound traffic but still keeps the instance private.
 
-## Quick Recall Tips for AWS Interviews
+So overall, it’s about controlling network access, removing public exposure, and using secure ways to connect.
 
-| Service | Quick Answer |
-|---------|--------------|
-| **EC2** | Virtual machines in the cloud. Rent by the hour/second. |
-| **S3** | Object storage. Buckets hold files/objects. |
-| **RDS** | Managed relational database. Multi-AZ for HA. |
-| **Lambda** | Serverless functions. Pay per invocation. |
-| **VPC** | Your isolated network in AWS with subnets and routing. |
-| **IAM** | Control who can do what using users, roles, policies. |
-| **ELB** | Distributes traffic across instances. |
-| **CloudFormation** | Infrastructure as code. Define resources in YAML/JSON. |
-| **CloudWatch** | Monitoring, logs, metrics, alarms. |
-| **CloudFront** | CDN. Cache content at edge locations. |
-| **DynamoDB** | NoSQL, serverless, fast, pay-per-use. |
-| **SNS** | Broadcast messages to multiple subscribers. |
-| **SQS** | Queue messages for reliable processing. |
-| **Route 53** | DNS service. Geolocation and latency-based routing. |
-| **Aurora** | High-performance managed database (5x faster MySQL). |
-| **Kinesis** | Real-time streaming data processing. |
-| **GuardDuty** | Threat detection using ML. |
-| **Direct Connect** | Dedicated network connection to AWS. |
 
 ---
 
-## How to Answer AWS Interview Questions
+## Q72 How to route traffic to a second server if the first one crashes, keeping the same DNS and IP? 
 
-**Strategy:**
-1. **Understand the question**. Ask clarifying questions if needed.
-2. **Give a simple one-liner** definition.
-3. **Mention key components** or features.
-4. **Explain use cases** and when to use.
-5. **Compare alternatives** if relevant.
-6. **Show practical knowledge** (if asked, mention pricing, scaling, etc.).
-
-**Example:**
-> "EC2 is AWS's virtual machine service. It gives you compute resources—CPU, memory, storage—that you pay for by the hour. You choose the instance type based on needs: t2 for light workloads, c5 for compute-heavy, r5 for memory-heavy. For production, you'd deploy across multiple AZs with a load balancer for high availability and auto-scaling to handle traffic spikes."
+I would place both EC2 instances behind an Application Load Balancer with health checks enabled. If one instance fails, traffic is automatically routed to the healthy instance without changing DNS.
 
 ---
 
-## Interview Tips
+## Q73 What parameters are used to create an autoscaling group?
 
-- **Be honest**: If you don't know something, say so. Don't make up answers.
-- **Show hands-on experience**: Mention real projects you've built on AWS.
-- **Understand cost**: AWS is pay-per-use; show you think about cost optimization.
-- **Link services together**: Don't answer in silos. For example: "CloudFront sits in front of S3 to cache static content and improve performance."
-- **Ask questions back**: If something is unclear, ask the interviewer to clarify.
-- **Practice with diagrams**: Drawing architecture diagrams is often asked; practice that.
+Auto Scaling Group requires launch template, min/max/desired capacity, scaling policies, subnet configuration, and health checks.
 
-Good luck with your AWS interviews!
+---
+
+## Q74 What are the different types of autoscaling policies? 
+
+There are three main types of Auto Scaling policies: Dynamic scaling, Predictive scaling, and Scheduled scaling.
+
+Dynamic scaling automatically adjusts instances in real time based on metrics like CPU or traffic, predictive scaling uses historical data to scale ahead of demand, and scheduled scaling changes capacity at predefined times.
+
+
+---
+
+## Q75 Are S3 buckets regional or global?
+
+S3 buckets are regional, meaning they are created in a specific AWS region and store data there.
+
+But their names must be globally unique, so no two buckets can have the same name anywhere in AWS.
+
+
+---
+
+## Q76 How to move S3 data from one AWS account to a shared account for retention policies? 
+
+To move S3 data from one AWS account to another, I first create a destination bucket in the shared account and configure cross-account access using IAM roles and bucket policies.
+
+Then, I transfer the data using S3 replication or tools like AWS CLI (aws s3 sync). After the data is moved, I apply lifecycle policies in the destination bucket to enforce retention, such as transitioning data to Glacier or deleting it after a defined period.
+
+---
+
+## Q78 What is the difference between replication rules and lifecycle rules?
+
+Replication rules are used to copy objects from one S3 bucket to another (same or different region/account) for backup or disaster recovery.
+
+Lifecycle rules are used to manage the lifecycle of objects, like moving them to cheaper storage (Glacier) or deleting them after a certain time
+
+
+---
+
+##  Q79 types of replication
+1. Cross-Region Replication (CRR)
+Replicates data to a bucket in a different AWS region — mainly used for disaster recovery and compliance.
+
+2. Same-Region Replication (SRR)
+Replicates data within the same region — used for data sharing or maintaining multiple copies.
+
+---
+
+## Q80 What is a permission boundary in IAM? 
+
+A permission boundary in IAM is an advanced feature that sets the maximum permissions an IAM user or role can have.
+
+Even if more permissions are attached through policies, the user or role cannot exceed the limits defined by the permission boundary.
+
+---
+
+## Q81 How to establish communication between an EC2 instance in one account and a database in another? 
+
+To establish communication between an EC2 instance in one AWS account and a database in another, I use VPC peering or AWS PrivateLink to create a private network connection between the two accounts.
+
+Then, I configure route tables, security groups, and database access rules to allow traffic only from the EC2 instance, ensuring secure communication without exposing the database to the internet.
+
+
+---
+
+## Q82 How to configure VPC peering? 
+
+To configure VPC peering, I first create a peering connection between two VPCs (same or different accounts) and have the request accepted on the other side.
+
+Then, I update the route tables in both VPCs to allow traffic to each other’s CIDR blocks, and configure security groups and network ACLs to permit the required traffic.
+
+This enables private communication between resources in both VPCs without using the internet.
+
+
+---
+
+## Q83 What causes a target group to become unhealthy?
+
+A target group becomes unhealthy when targets fail the configured health checks. This can happen due to several reasons:”
+
+🔹 Common Reasons
+- Application not running – service/crash, app port not listening
+- Wrong health check path – e.g., /health doesn’t exist or returns non-200
+- Incorrect port – health check is hitting the wrong port
+- Security group issues – load balancer can’t reach the instance
+- Network ACL blocking traffic
+- Timeouts / slow response – app takes too long to respond
+- High CPU / memory usage – instance becomes unresponsive
+- Misconfigured target group settings – wrong protocol (HTTP vs HTTPS)
+- Instance not registered properly
+
+---
+
+## Q84 What is the difference between CloudWatch alarms and events?
+
+CloudWatch Alarms check numbers (like CPU usage). If the value crosses a limit, they take action (like send alert or scale).
+
+CloudWatch Events (Amazon EventBridge) react to things happening in AWS (like an instance starting or stopping) and trigger actions automatically.
+
+---
+
+
+
