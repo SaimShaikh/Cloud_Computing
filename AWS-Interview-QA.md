@@ -1337,5 +1337,10 @@ Abnormal number of errors
 
 ---
 
+## Q93 What is AWS WAF?
 
+AWS WAF is a Web Application Firewall that protects web applications from common web exploits like SQL injection, XSS, and DDoS attacks. It works at Layer 7 and filters HTTP/HTTPS requests based on rules defined in Web ACLs. It integrates with services like CloudFront, ALB, and API Gateway, and supports managed rules, rate limiting, and real-time monitoring.
+
+
+---
 
