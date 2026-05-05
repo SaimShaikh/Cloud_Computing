@@ -1344,3 +1344,117 @@ AWS WAF is a Web Application Firewall that protects web applications from common
 
 ---
 
+## Q94 How does AWS handle DDoS attacks?
+
+AWS provides multiple layers of protection through:
+- AWS Shield: Standard (free)
+and Advanced (paid)
+services.
+- Amazon CloudFront:
+Content caching and geo-
+restrictions to mitigate
+attacks.
+- Route 53: Supports DNS-
+based attack mitigation.
+- WAF: that filter the malicious IP from traffic 
+---
+
+## Q95 What is AWS Identity and Access Management (IAM)? Why is it important?
+
+•The principle of least privilege means granting users the minimum permissions required to perform their job.
+• In AWS, this is implemented through IAM Policies, Service Control Policies (SCPs), and permission boundaries.
+
+---
+
+## Q96 How does AWS secure data in transit and at rest?
+
+For data in transit, AWS uses protocols like HTTPS, TLS, and SSL to encrypt data as it moves between clients and services.
+
+For data at rest, AWS provides encryption using services like AWS KMS and supports server-side encryption in services like S3, EBS, and RDS.
+
+Additionally, IAM policies control access to encrypted data, ensuring only authorized users and services can access it.
+
+---
+
+## Q97 What are AWS Key Management Service (KMS) and its use cases?
+
+Amazon Web Services Key Management Service (KMS) is a fully managed service used to create, manage, and control encryption keys for securing data across AWS services.
+
+It integrates with services like S3, EBS, and RDS to enable encryption at rest, and allows fine-grained access control using IAM policies and key policies. KMS also provides auditing through CloudTrail and supports automatic key rotation for enhanced security.
+
+🔑 Types of Keys in KMS
+- 🔹 AWS Managed Keys
+Created automatically by AWS
+Easy but less control
+- 🔹 Customer Managed Keys (CMK)
+Full control (permissions, rotation)
+Used in real production setups
+- 🔹 Customer Provided Keys (External)
+Imported into KMS
+
+---
+
+## Q98 What is AWS Security Hub? How does it help?
+
+Instead of checking:
+
+- GuardDuty separately
+- Inspector separately
+- IAM issues separately
+  
+Amazon Web Services Security Hub is a centralized security service that aggregates, organizes, and prioritizes security findings from various AWS services like GuardDuty, Inspector, and Macie.
+
+It helps by providing a single dashboard for security alerts, running continuous compliance checks against standards like CIS benchmarks, and enabling faster incident response by prioritizing critical issues.
+
+
+---
+
+## Q99 What are AWS Organizations, and how do they enhance security?
+
+
+AWS Organizations is an account management service that enables central governance, security, and billing for multiple AWS accounts.
+
+Instead of:
+
+Everything in one messy account ❌
+
+You do:
+
+Separate accounts:
+- Dev
+- Test
+- Prod
+- Security
+
+👉 Clean + secure setup
+
+How AWS Organizations Work
+- Management Account: A single master account is used to create and manage the entire organization.
+- Member Accounts: These are the standard AWS accounts belonging to the organization, which are subject to the policies set by the management account.
+- Organizational Units (OUs): Hierarchical structures that allow for grouping accounts to apply policies, such as SCPs, at scale.
+
+---
+
+## Q100 How do you ensure compliance with AWS?
+In Amazon Web Services, compliance is achieved using the Shared Responsibility Model, where AWS secures the infrastructure, and we are responsible for securing our workloads and configurations.
+
+We use AWS Artifact to access compliance reports, AWS Config and Security Hub for continuous monitoring and compliance checks, and AWS Audit Manager to automate evidence collection and audit readiness. Additionally, governance is enforced using AWS Organizations and IAM, while CloudTrail ensures full audit logging.”
+
+---
+
+## Q101  How do you monitor security in AWS?
+
+In Amazon Web Services, I monitor security using a combination of services. CloudTrail is used to track all API activity for auditing, CloudWatch monitors logs and triggers alerts, GuardDuty provides intelligent threat detection, and Security Hub aggregates findings into a centralized dashboard.
+
+Additionally, AWS Config is used for compliance monitoring, and EventBridge with Lambda can automate responses to security incidents.
+
+---
+
+## Q102 How do you secure RDS databases in AWS?
+
+To secure RDS in Amazon Web Services, I follow a layered approach: place the database in private subnets within a VPC, restrict access using security groups, and avoid public exposure. I enable encryption at rest using KMS and enforce TLS for data in transit.
+
+Access is controlled using IAM and strong authentication, while backups, automated patching, and monitoring with CloudWatch and CloudTrail ensure availability and auditing. Additionally, I use least privilege and regularly rotate credentials.
+
+---
+
