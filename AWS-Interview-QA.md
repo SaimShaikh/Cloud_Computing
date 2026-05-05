@@ -1458,3 +1458,10 @@ Access is controlled using IAM and strong authentication, while backups, automat
 
 ---
 
+## Q103 How do you reduce AWS costs without compromising performance?
+In Amazon Web Services, I reduce costs by right-sizing resources, using Auto Scaling to match demand, and selecting appropriate pricing models like Reserved Instances or Savings Plans for steady workloads.
+
+I optimize storage with lifecycle policies, leverage Spot Instances for fault-tolerant jobs, and use CloudFront for caching to reduce origin load. Continuous monitoring with CloudWatch and Cost Explorer helps identify waste, while automation ensures unused resources are stopped or terminated.
+
+---
+
