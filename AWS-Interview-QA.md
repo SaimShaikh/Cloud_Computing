@@ -1545,3 +1545,132 @@ so the application keeps running without interruption.
 
 ## Q110 How would you design an architecture to handle peak traffic situations? 
 
+To handle peak traffic situations in Amazon Web Services, I would design a highly available and scalable architecture using services like Auto Scaling, Elastic Load Balancer, CloudFront, and Multi-AZ deployment.
+
+The Load Balancer distributes incoming traffic across multiple EC2 instances, while Auto Scaling automatically increases or decreases instances based on demand. CloudFront helps reduce load by caching content at edge locations, and the application is deployed across multiple Availability Zones to ensure high availability and fault tolerance.
+
+
+---
+
+## Q111 When would you prefer to use Provisioned IOPS over Standard RDS storage?
+
+I would prefer Provisioned IOPS storage in Amazon Web Services RDS when the application requires high-performance, low-latency, and consistent disk I/O operations, especially for I/O-intensive workloads.
+
+It is commonly used for production databases such as high-traffic OLTP systems, financial applications, gaming platforms, or large enterprise applications where fast and predictable database performance is critical.
+
+Standard storage is more suitable for small applications, development, testing, or workloads with moderate performance requirements.
+
+---
+
+## Q112 How would you right-size a system for normal and peak traffic situations?
+
+o right-size a system in Amazon Web Services for normal and peak traffic situations, I would first analyze application usage patterns and resource utilization using CloudWatch metrics such as CPU, memory, network, and disk usage.
+
+For normal traffic, I would select appropriately sized instances to avoid overprovisioning and reduce unnecessary costs. For peak traffic situations, I would use Auto Scaling and Elastic Load Balancer so that additional instances are automatically launched when traffic increases and removed when traffic decreases.
+
+I would also use CloudFront caching to reduce backend load and deploy resources across multiple Availability Zones to ensure high availability and fault tolerance.
+
+
+---
+
+## Q113 You have a microservices application that needs to scale dynamically based on traffic. How would you design an architecture for this using AWS services?
+
+For a microservices application in Amazon Web Services that needs dynamic scaling, I would design a container-based and highly available architecture using services like ECS or EKS, Application Load Balancer, Auto Scaling, API Gateway, and managed databases.
+
+Each microservice would run independently in containers, allowing individual scaling based on traffic and resource utilization. Application Load Balancer would distribute incoming traffic, while Auto Scaling adjusts container instances automatically.
+
+For asynchronous communication, I would use SQS or SNS, and CloudWatch would be used for monitoring and scaling metrics. The application would be deployed across multiple Availability Zones for high availability and fault tolerance.
+
+---
+
+## Q114 Your application's database is experiencing performance issues. Describe how you would use AWS tools to troubleshoot and resolve this.
+
+To troubleshoot database performance issues in Amazon Web Services, I would first use Amazon RDS Performance Insights to identify bottlenecks such as high CPU usage, slow queries, or locking issues. I would monitor database metrics like CPU, memory, IOPS, latency, and connections using CloudWatch.
+
+If the issue is related to application requests, I would use AWS X-Ray to trace requests and identify slow application components interacting with the database. I would also optimize slow queries, add proper indexing, and review connection management.
+
+If the workload is high, I would scale the database vertically or use Read Replicas for read-heavy traffic. Additionally, I may use ElastiCache to reduce repeated database queries and improve overall performance.
+
+
+---
+
+## Q115 Your team is frequently encountering configuration drift issues in your infrastructure. How could you prevent and manage this effectively?
+
+To prevent and manage configuration drift in infrastructure, I would implement Infrastructure as Code (IaC) using tools like Terraform or AWS CloudFormation so that infrastructure configurations are version-controlled and consistently deployed.
+
+---
+
+## Q116 Your team wants to ensure secure access to AWS resources for different team members. How could you implement this?
+
+To ensure secure access to AWS resources for different team members in Amazon Web Services, I would implement AWS IAM using the principle of least privilege.
+
+I would create IAM users, groups, and roles based on job responsibilities and assign only the required permissions through IAM policies. Multi-Factor Authentication (MFA) would be enabled for additional security, especially for privileged accounts.
+
+For temporary and secure access, I would use IAM roles instead of sharing long-term credentials. I would also enable CloudTrail for auditing user activities and regularly review permissions to remove unnecessary access.
+
+---
+
+## Q117 You're managing a complex microservices architecture with multiple services communicating. How could you monitor and trace requests across services?
+
+To monitor and trace requests across multiple microservices in Amazon Web Services, I would use AWS X-Ray for distributed tracing and CloudWatch for monitoring logs, metrics, and alerts.
+
+AWS X-Ray helps track requests as they move through different microservices, making it easier to identify latency issues, bottlenecks, or failed requests.
+
+---
+
+## Q118  Your application has a front-end hosted on S3, and you need to enable HTTPS for security. How would you achieve this?
+
+To enable HTTPS for an application front-end hosted on Amazon S3 in Amazon Web Services, I would use Amazon CloudFront in front of the S3 bucket because S3 static website endpoints do not directly support HTTPS with custom domains.
+
+I would request or import an SSL/TLS certificate using AWS Certificate Manager (ACM) and attach it to the CloudFront distribution. Then, I would configure the custom domain in Route 53 and update DNS records to point to CloudFront.
+
+---
+
+## Q119 Your organization has multiple AWS accounts for different environments (dev, staging, prod). How would you manage centralized billing and ensure cost optimization?
+
+To manage multiple AWS accounts such as development, staging, and production in Amazon Web Services, I would use AWS Organizations for centralized account management and consolidated billing.
+
+This allows all account usage and billing information to be managed from a single master or management account while still keeping environments isolated for security and governance.
+
+For cost optimization, I would use AWS Cost Explorer, Budgets, and tagging strategies to monitor spending by environment, team, or project.
+
+---
+
+## Q120 Your application needs to store and retrieve large amounts of unstructured data. How could you design a cost-effective solution?
+
+I would use Amazon S3 with appropriate storage classes (such as S3 Standard or S3 Intelligent-Tiering) based on data access patterns. This allows for durable and cost-effective storage of unstructured data.
+
+---
+
+## Q121  Your application uses AWS Lambda functions, and you want to improve cold start performance. How could you address this challenge?
+
+To improve AWS Lambda cold start performance in Amazon Web Services, I would primarily use Provisioned Concurrency, which keeps Lambda execution environments pre-initialized and ready to serve requests with low latency.
+
+Additionally, I would reduce the deployment package size, remove unnecessary dependencies, optimize memory allocation, and reuse database connections to minimize initialization time.
+
+For some workloads, scheduled warm-up invocations using EventBridge or API Gateway can also help reduce cold starts, but Provisioned Concurrency is the recommended and more reliable approach for production environments
+
+
+---
+
+## Q122 Your application has multiple microservices, each with its own database. How could you manage database schema changes efficiently?
+
+I would use AWS Database Migration Service (DMS) to replicate data between the old and new schema versions, allowing for seamless database migrations without disrupting application operations.
+
+---
+
+## Q123 Your organization is concerned about data protection and compliance. How could you ensure sensitive data is securely stored and transmitted?
+
+To ensure sensitive data is securely stored and transmitted in Amazon Web Services, I would implement encryption both at rest and in transit.
+
+For data at rest, I would use Amazon S3 server-side encryption and enable encryption for Amazon RDS using AWS KMS-managed keys.
+
+For data in transit, I would enforce SSL/TLS encryption for secure communication between users, applications, and AWS services. I would also implement IAM least-privilege access, enable logging and monitoring using CloudTrail and CloudWatch, and follow security best practices such as key rotation and secure credential management
+
+---
+
+## Q124 What is Server-Side Encryption?
+
+Server-side encryption is a security mechanism where data is automatically encrypted by the AWS service before being stored and decrypted when accessed by authorized users.
+
+---
