@@ -1459,9 +1459,89 @@ Access is controlled using IAM and strong authentication, while backups, automat
 ---
 
 ## Q103 How do you reduce AWS costs without compromising performance?
+
 In Amazon Web Services, I reduce costs by right-sizing resources, using Auto Scaling to match demand, and selecting appropriate pricing models like Reserved Instances or Savings Plans for steady workloads.
 
 I optimize storage with lifecycle policies, leverage Spot Instances for fault-tolerant jobs, and use CloudFront for caching to reduce origin load. Continuous monitoring with CloudWatch and Cost Explorer helps identify waste, while automation ensures unused resources are stopped or terminated.
 
 ---
+
+## Q104 What is AWS Config?
+
+AWS Config is used to monitor and track AWS resource configurations continuously. It helps in compliance, auditing, and detecting unwanted changes in the AWS environment.
+
+---
+
+## Q105 What is AWS Shield?
+
+Amazon Web Services Shield is a managed DDoS protection service that safeguards applications running on AWS against Distributed Denial of Service attacks. It helps maintain application availability by automatically detecting and mitigating malicious traffic.
+
+AWS Shield has two types: Shield Standard, which provides automatic protection against common Layer 3 and Layer 4 attacks at no additional cost, and 
+
+Shield Advanced, which offers enhanced protection, detailed attack visibility, cost protection, and access to the AWS DDoS Response Team.
+
+
+---
+
+## Q106 What is Secrets Manager?
+
+Amazon Web Services Secrets Manager is a service used to securely store, manage, and retrieve sensitive information such as database credentials, API keys, and application secrets.
+
+It helps improve security by encrypting secrets using AWS KMS, enabling automatic secret rotation, and allowing controlled access through IAM policies.
+
+🔹 Key Features
+Secure storage of secrets
+Encryption using KMS
+Automatic password rotation
+Fine-grained access control with IAM
+Integration with services like RDS, Lambda, and applications
+
+---
+
+## Q107 What is Cost Explorer?
+
+Amazon Web Services Cost Explorer is a cost management service that helps analyze, monitor, and visualize AWS spending and usage over time.
+
+It provides detailed reports, graphs, and forecasting features that help identify cost patterns, optimize resource usage, and reduce unnecessary expenses.
+
+“If the EC2 bill suddenly increases, Cost Explorer helps identify which instance, region, or service is causing the increase.”
+
+
+---
+
+## Q108 What is Storage Gateway?
+
+AWS Storage Gateway is a hybrid cloud storage service that connects on-premises environments to AWS cloud storage, providing low-latency access by caching frequently accessed data locally. 
+
+🔹 Types of Storage Gateway
+- ✅ File Gateway
+Stores files in S3
+Uses NFS/SMB protocols
+- ✅ Volume Gateway
+Provides block storage
+Used for backups and disaster recovery
+- ✅ Tape Gateway
+Replaces physical backup tapes with virtual tapes in AWS
+
+---
+
+## Q109 What is fault tolerance?
+
+Fault tolerance is the ability of a system to continue working properly even if one or more components fail. It ensures high availability and minimal downtime by using redundant resources and automatic failover mechanisms.
+
+- 🔹 In Simple Words
+
+If one server fails,
+👉 another server immediately takes over
+so the application keeps running without interruption.
+
+🔹 AWS Services Used for Fault Tolerance
+- Elastic Load Balancer (ELB)
+- Auto Scaling
+- Multi-AZ deployment
+- Route 53 health checks
+
+---
+
+## Q110 How would you design an architecture to handle peak traffic situations? 
 
