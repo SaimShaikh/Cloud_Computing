@@ -1772,3 +1772,181 @@ Then create new subnets from the new CIDR range."
 
 ---
 
+## Q127 If an EC2 instance is not reachable,
+
+Then I’d troubleshoot step by step:
+
+- Check Security Group rules
+- Verify public IP or Elastic IP
+- Confirm SSH/RDP port is open
+- Check internet connectivity
+- Verify the correct key pair or credentials
+- Check whether the SSH service is running inside the server
+
+If still not working, I’d check system logs, CPU/RAM usage, disk space, and use EC2 Serial Console for recovery.
+
+---
+
+## Q128  What are the different why to access the ec2 
+
+“You can access an EC2 instance in multiple ways depending on the OS and setup:
+
+- SSH → for Linux instances using key pair authentication
+- RDP → for Windows instances
+- EC2 Instance Connect → browser-based SSH access from AWS Console
+- Session Manager → secure access without opening SSH ports or using keys
+- Bastion Host → access private instances through a jump server
+- EC2 Serial Console → for low-level troubleshooting when normal access fails
+
+---
+
+## Q129 Can private subnet communicate with internet without NAT?
+
+✅ Yes, using:
+
+- VPC Endpoint (for AWS services like S3)
+- VPN
+- Direct Connect
+
+But normal internet access usually requires NAT.
+
+
+---
+
+## Q130 Private EC2 cannot access internet. How will you troubleshoot?
+
+I would first verify the NAT Gateway status, ensure it is deployed in a public subnet with an Internet Gateway attached, then check route tables for both public and private subnets. After that, I’d verify Security Groups, NACLs, Elastic IP association, and finally test DNS and internet connectivity from the EC2 instance.
+
+---
+
+## Q131 Where is NAT Gateway deployed?
+
+NAT Gateway is always placed in:
+
+-Public Subnet
+
+- Because:
+
+- it needs internet access through Internet Gateway.
+
+---
+
+## Q132 Can NAT Gateway receive inbound traffic?
+
+❌ No.
+
+- It only allows:
+
+- outbound initiated connections
+
+Example:
+
+- EC2 → Internet ✅
+- Internet → EC2 ❌
+
+---
+
+## Q133 Difference between NAT Gateway and Internet Gateway
+
+| NAT Gateway            | Internet Gateway      |
+| ---------------------- | --------------------- |
+| Used by private subnet | Used by public subnet |
+| Outbound internet only | Full internet access  |
+| No inbound traffic     | Inbound + outbound    |
+| Managed AWS service    | VPC component         |
+
+---
+
+
+---
+
+## Q134 What is NAT Insatnce ?
+
+A NAT Instance is an EC2 instance configured to provide internet access to instances in a private subnet without exposing them directly to the internet.
+
+It allows private instances to:
+
+- Download updates
+- Install packages
+- Access external services
+
+But inbound internet traffic is blocked.
+
+Earlier, NAT Instances were commonly used, but now AWS recommends NAT Gateway because it is managed, scalable, and highly available.
+
+---
+
+## Q135 What is the difference between NAT Gateway and NAT Instance?
+
+| NAT Gateway        | NAT Instance        |
+| ------------------ | ------------------- |
+| Managed by AWS     | EC2 instance        |
+| Auto scalable      | Manual scaling      |
+| High availability  | Need setup manually |
+| Better performance | Less performance    |
+| More costly        | Cheaper             |
+
+---
+
+## Q136 Can two private subnets use one NAT Gateway?
+
+✅ Yes.
+
+Multiple private subnets can route traffic to same NAT Gateway.
+
+But in production:
+
+- usually one NAT Gateway per AZ
+- for high availability
+
+---
+
+## Q137 What happens if NAT Gateway fails?
+
+If single NAT Gateway fails:
+
+- private subnet internet access stops
+
+Best practice:
+
+- deploy NAT Gateway in multiple AZs
+
+---
+
+## Q138 Does NAT Gateway allow SSH from internet to private EC2?
+
+❌ No.
+
+To access private EC2:
+
+- Bastion Host
+- SSM Session Manager
+- VPN
+
+---
+
+## Q139  What are disadvantages of NAT Gateway?
+
+- Costly
+- Per GB charges
+- AZ dependent
+
+Many companies reduce NAT cost using:
+
+- VPC endpoints
+- proxy servers
+
+---
+
+## Q140 How To Reduce NAT Gateway Cost in AWS
+
+- Use VPC Endpoints (BEST METHOD)
+- Deploy NAT Gateway Only Where Needed
+- Use One NAT Gateway for Multiple Private Subnets
+- Schedule NAT Gateway Shutdown (Non-Production)
+- Use NAT Instance Instead of NAT Gateway (Sometimes)
+
+
+---
+
+
