@@ -1949,4 +1949,28 @@ Many companies reduce NAT cost using:
 
 ---
 
+## Q141 Types of CloudWatch Alerts (Alarms)
+
+1. Metric Alarms
+
+Most commonly used.
+
+2. Composite Alarms
+
+Combines multiple alarms into one intelligent alert.
+
+3. Log-Based Alerts
+Created using CloudWatch Logs + Metric Filters.
+
+CloudWatch scans logs and creates alerts from patterns.
+
+4. Event-Based Alerts
+
+Triggers alerts based on AWS service events.
+
+5. Anomaly Detection Alerts
+
+CloudWatch uses ML-based baseline detection.
+
+---
 
