@@ -1974,3 +1974,135 @@ CloudWatch uses ML-based baseline detection.
 
 ---
 
+## Q142 Explain the lifecycle of an EC2 instance from launch to termination.
+
+An EC2 instance moves through multiple states like Pending → Running → Stopping/Stopped → Shutting-down → Terminated, depending on whether it is started, rebooted, stopped, or deleted.
+
+
+---
+
+## Q143 What happens internally when you upload a file to Amazon S3?
+
+“When we upload a file to Amazon S3, S3 first authenticates the request using IAM or bucket policies. After validation, the file is stored as an object inside the bucket along with its metadata and unique key.
+
+Internally, S3 automatically replicates the object across multiple Availability Zones for high durability and availability. If encryption or versioning is enabled, S3 applies those settings during upload. Finally, once the upload is successful, S3 returns a success response and the object becomes available for access.”
+
+---
+
+## Q144 Explain the difference between AWS Lambda, ECS, and EKS. When would you choose one over the others?
+
+“AWS Lambda, Amazon ECS, and Amazon EKS are all compute services in AWS, but they are used for different workloads.
+
+AWS Lambda is a serverless service where we only upload code and AWS manages the infrastructure automatically. It is mainly used for event-driven and short-running tasks like automation, API backends, file processing, or triggering CI/CD actions. We choose Lambda when we don’t want to manage servers.
+
+ECS is AWS’s native container orchestration service. It is simpler compared to Kubernetes and is mainly used for running Docker containers efficiently on AWS. We choose ECS when we want containerization with easier management and tight AWS integration.
+
+EKS is a managed Kubernetes service. It is used when the application requires Kubernetes features like advanced orchestration, portability, Helm, operators, or multi-cloud flexibility. We choose EKS mostly in enterprise or large-scale microservices environments where Kubernetes knowledge already exists.
+
+So in short:
+
+- Lambda → serverless and event-driven workloads
+- ECS → simple and AWS-native container management
+- EKS → full Kubernetes-based container orchestration”
+
+---
+
+## Q145 How does IAM Role assumption work between AWS accounts?
+
+"In cross-account access, IAM Role assumption allows one AWS account to securely access resources in another AWS account without sharing permanent credentials.
+
+The process works using a trust relationship.
+
+Suppose Account A wants to access resources in Account B. In Account B, we create an IAM Role and define a trust policy that allows Account A to assume that role. Then, users or services in Account A are given permission to use sts:AssumeRole.
+
+When the user or application assumes the role, AWS Security Token Service (STS) generates temporary credentials like:
+
+- Access Key
+- Secret Key
+- Session Token
+
+Using these temporary credentials, Account A can securely access the allowed resources in Account B based on the permissions attached to that role.
+
+This approach is more secure because we avoid sharing long-term access keys and can control access using temporary credentials and policies.
+
+In real-time projects, cross-account role assumption is commonly used for:
+
+- Centralized logging
+- CI/CD deployments
+- Multi-account AWS environments
+- Terraform or DevOps automation across accounts.”
+
+---
+
+## Q146 Explain VPC Peering vs Transit Gateway. Which one is better for large-scale architectures?
+
+"AWS Transit Gateway and VPC Peering are both used to connect VPCs, but they are designed for different scales of architecture.
+
+VPC Peering creates a direct one-to-one private connection between two VPCs. Traffic stays within the AWS network, and resources can communicate using private IPs. It is simple and cost-effective for small environments.
+
+But the limitation is scalability. If multiple VPCs need communication, we need many peering connections, which creates a mesh architecture and becomes difficult to manage.
+
+Transit Gateway works like a central network hub. Instead of connecting every VPC individually, all VPCs connect to the Transit Gateway, and it manages routing centrally. It also supports VPN and Direct Connect integration.
+
+For large-scale architectures, Transit Gateway is better because:
+
+- Easier routing management
+- Better scalability
+- Centralized connectivity
+- Supports hundreds or thousands of VPCs
+
+So in short:
+
+- VPC Peering → best for small or simple environments
+- Transit Gateway → best for enterprise and large-scale multi-VPC architectures”
+
+---
+
+## Q147 How would you troubleshoot a Kubernetes application running on Amazon EKS that is constantly restarting?
+
+“If an application running on Amazon EKS is constantly restarting, first I would check the pod status using:
+
+**kubectl get pods**
+
+Then I would describe the pod to identify the exact reason for the restart:
+
+**kubectl describe pod <pod-name>**
+
+Here I usually check for:
+
+- CrashLoopBackOff
+- OOMKilled
+- Failed probes
+- Image pull errors
+- Scheduling issues
+
+Next, I would check the container logs:
+
+**kubectl logs <pod-name>**
+
+If the pod restarts too quickly, I would check previous logs:
+
+**kubectl logs <pod-name> --previous**
+
+After that, I would verify:
+
+- Liveness and readiness probes
+- Environment variables
+- ConfigMaps and Secrets
+- Resource limits and requests
+- Application configuration
+
+If it is an infrastructure issue, I would also check:
+
+- Node status
+- EKS worker node health
+- CPU and memory usage
+- Events in the namespace
+
+For monitoring and deeper troubleshooting, I may use:
+
+- CloudWatch logs
+- Metrics Server
+
+---
+
