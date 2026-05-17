@@ -46,35 +46,8 @@ Organizations migrate to cloud for several business and technical reasons.
 
 ---
 
-# 🏗️ Traditional Infrastructure Problems
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/ff0d8fbf-3c55-4b2f-8aa0-cd9490f8fdce" />
 
-```text
-Physical Servers
-      ↓
-Manual Scaling
-      ↓
-High Maintenance
-      ↓
-Hardware Dependency
-      ↓
-Downtime Risks
-```
-
----
-
-# ☁️ Cloud Infrastructure Advantages
-
-```text
-Cloud Platform
-      ↓
-Auto Scaling
-      ↓
-Managed Services
-      ↓
-Global Infrastructure
-      ↓
-High Availability
-```
 
 ---
 
