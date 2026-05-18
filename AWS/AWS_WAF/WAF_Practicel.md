@@ -634,6 +634,7 @@ Expected:
 ```text
 403 Forbidden
 ```
+<img width="1671" height="388" alt="Screenshot 2026-05-16 at 12 50 18 PM" src="https://github.com/user-attachments/assets/a0775389-f43f-4814-82b3-b1170f500156" />
 
 This confirms:
 
@@ -699,6 +700,12 @@ ALB
 Nginx
 ```
 
+## Output 
+
+<img width="1670" height="586" alt="Screenshot 2026-05-16 at 12 51 24 PM" src="https://github.com/user-attachments/assets/eb26c991-c444-4b7f-b507-1a600b4821e8" />
+
+<img width="1674" height="352" alt="Screenshot 2026-05-16 at 12 51 59 PM" src="https://github.com/user-attachments/assets/51bf8583-dac9-4013-b914-6258af48194b" />
+
 ---
 
 # Difference Between BLOCK and CAPTCHA
@@ -717,6 +724,8 @@ Navigate to:
 ```text
 CloudWatch → Metrics → WAF
 ```
+
+<img width="1364" height="554" alt="Screenshot 2026-05-16 at 1 01 11 PM" src="https://github.com/user-attachments/assets/2baf1db0-aac2-4503-a089-78b2854f7245" />
 
 Monitor:
 
