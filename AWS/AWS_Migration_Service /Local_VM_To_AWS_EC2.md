@@ -293,6 +293,11 @@ Initial Sync
 
 <img width="3023" height="1626" alt="image" src="https://github.com/user-attachments/assets/23777d49-0ade-424e-bc34-5437f81f296f" />
 
+---
+
+<img width="3023" height="1626" alt="image" src="https://github.com/user-attachments/assets/c715ce3b-cd8d-4e9e-9850-a51989fd6b3f" />
+
+
 * Agent begins replicating data to AWS.
 * Monitor replication status from AWS MGN Console.
 * Wait until the server reaches a healthy state.
