@@ -398,6 +398,18 @@ Service:
 ```text
 com.amazonaws.ap-south-1.ssm
 ```
+Purpose:
+
+The SSM Agent communicates with the core AWS Systems Manager service.
+
+Use Cases:
+
+- Register EC2 as Managed Node
+- Fetch commands from Systems Manager
+- Send command results back
+- Patch Manager
+- Automation
+- State Manager
 
 Configuration:
 
@@ -428,6 +440,17 @@ Service:
 ```text
 com.amazonaws.ap-south-1.ssmmessages
 ```
+Purpose:
+
+Used by Session Manager to establish the interactive shell session.
+
+Use Cases:
+
+- Browser terminal access
+- Session Manager login
+- Interactive shell
+- Port forwarding
+- Secure tunnel creation
 
 Same configuration:
 
@@ -458,6 +481,19 @@ Service:
 ```text
 com.amazonaws.ap-south-1.ec2messages
 ```
+
+Purpose:
+
+Acts as a communication channel between the SSM Agent and AWS.
+
+Think of it as a mailbox service.
+
+Use Cases:
+
+- Agent polling
+- Command delivery
+- Command acknowledgements
+- Status reporting
 
 Use same configuration.
 
