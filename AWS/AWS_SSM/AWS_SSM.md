@@ -519,6 +519,7 @@ Expected:
 ```bash
 sh-5.2$
 ```
+<img width="2948" height="1929" alt="image" src="https://github.com/user-attachments/assets/d69430ca-229c-4add-9ac3-1b23f406f525" />
 
 or
 
