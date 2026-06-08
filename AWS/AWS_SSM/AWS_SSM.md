@@ -27,33 +27,7 @@ In this lab, we will:
 
 # Architecture Overview
 
-```text
-AWS Systems Manager
-        |
--------------------------------------------------
-|                 |                           |
-SSM          SSMMessages                 EC2Messages
-|                 |                           |
--------------------------------------------------
-            VPC Interface Endpoints
-                    |
-            Private Subnet
-                    |
-           Private EC2 Instance
-                    |
-                IAM Role
-                    |
-AmazonSSMManagedInstanceCore
-                    |
-                SSM Agent
-                    |
-                   VPC
-          ------------------
-          |                |
-     Public Subnet   Private Subnet
-          |
-    Internet Gateway
-```
+<img width="1536" height="1024" alt="ChatGPT Image Jun 8, 2026, 12_43_17 PM" src="https://github.com/user-attachments/assets/211c8bee-f116-41ee-997e-5252bc3b22b7" />
 
 ---
 
