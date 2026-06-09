@@ -1,5 +1,5 @@
 
-# End-to-End Practical: Configure Amazon S3 Server Access Logging (Without Athena)
+# End-to-End Practical: Configure Amazon S3 Server Access Logging 
 
 # Objective
 
