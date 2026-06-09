@@ -10,34 +10,8 @@ This is an AWS Security Best Practice and is recommended by **AWS Security Hub**
 
 # Architecture
 
-```text
-                    Administrator
-                          │
-          Updates S3 Bucket Policy
-                          │
-                          ▼
-                AWS CloudTrail Event
-                          │
-                          ▼
-              CloudTrail Log Group
-                  (CloudWatch Logs)
-                          │
-                          ▼
-          CloudWatch Metric Filter
-      (Detect Put/Delete Bucket Policy)
-                          │
-                          ▼
-             Custom CloudWatch Metric
-                          │
-                          ▼
-              CloudWatch Alarm
-                          │
-                          ▼
-                  Amazon SNS Topic
-                          │
-                          ▼
-            Email / Security Team Alert
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/aade6345-91bc-4d0d-bb08-a8223382edb6" />
+
 
 ---
 
