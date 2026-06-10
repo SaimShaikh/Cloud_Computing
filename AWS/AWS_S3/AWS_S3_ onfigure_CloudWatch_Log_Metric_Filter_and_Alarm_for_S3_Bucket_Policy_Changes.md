@@ -325,6 +325,39 @@ Click
 Confirm Subscription
 ```
 
+## Now there is an issue here if you click on confirm subscription after some time aws or your browser automatically selects the unsubscribe and your are not able to receive the alert on your mail so after exploring i have this solution 
+
+## Solution is instead if clicking on the confirmation subscription just do right click on confirm subscription and copy the URl and make share to chatgpt , chatgpt will convert that URL into this type of command 
+
+
+```bash
+Command
+
+aws sns confirm-subscription \
+  --topic-arn "<YOUR_TOPIC_ARN>" \
+  --token "<YOUR_CONFIRMATION_TOKEN>" \
+  --authenticate-on-unsubscribe true
+
+Example
+
+aws sns confirm-subscription \
+  --topic-arn "arn:aws:sns:ap-south-1:123456789012:SecurityAlerts" \
+  --token "2336412f37fb687f5d51e6e2425929f52bf0d75d43a807fce1be6cbfab2588f01xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  --authenticate-on-unsubscribe true
+
+Parameters
+
+--topic-arn : The ARN of the SNS topic.
+--token : The confirmation token received in the subscription email.
+--authenticate-on-unsubscribe true : Requires AWS authentication to unsubscribe, helping prevent accidental or unauthorized unsubscribe requests.
+
+Successful Output
+{
+  "SubscriptionArn": "arn:aws:sns:ap-south-1:123456789012:SecurityAlerts:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+
+```
+
 ---
 
 # Step 10: Create CloudWatch Alarm
