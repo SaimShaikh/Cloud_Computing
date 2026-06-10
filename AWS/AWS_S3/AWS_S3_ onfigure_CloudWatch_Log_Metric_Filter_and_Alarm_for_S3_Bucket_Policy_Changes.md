@@ -502,6 +502,9 @@ Threshold crossed
 Current Value: 1
 ```
 
+<img width="1604" height="994" alt="Screenshot 2026-06-10 at 2 33 22 PM" src="https://github.com/user-attachments/assets/28e7437a-fb01-4bfe-be61-2adc76b85a8e" />
+
+
 ---
 
 # Step 15: Test Delete Bucket Policy
