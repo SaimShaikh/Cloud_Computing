@@ -878,6 +878,8 @@ Open
 https://Public-IP
 ```
 
+<img width="3340" height="1824" alt="image" src="https://github.com/user-attachments/assets/9e40ce21-fbab-4a4a-ab42-eda20fbfe5d7" />
+
 Complete the initial setup.
 
 ---
@@ -963,7 +965,7 @@ Add inbound rule
 
 # Step 13.10 - Connect from Laptop
 
-Install the Pritunl Client.
+Install the Pritunl Client. https://client.pritunl.com/#install
 
 Import the downloaded profile.
 
@@ -1014,6 +1016,7 @@ inet 10.10.10.10
 inet 10.10.10.20
 ```
 
+
 ---
 
 Alternative
@@ -1027,6 +1030,8 @@ Output
 ```
 10.10.10.10 10.10.10.20
 ```
+![Uploading image.png…]()
+
 
 ---
 
