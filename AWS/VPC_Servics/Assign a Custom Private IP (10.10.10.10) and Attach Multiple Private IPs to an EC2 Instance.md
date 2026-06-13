@@ -24,32 +24,8 @@ This lab follows enterprise best practices and does not skip any steps.
 
 # Lab Topology
 
-```text
-                           AWS Cloud
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/9fa4edc9-db11-4cef-8c13-248b5f1b39a3" />
 
-                     Custom VPC
-                     10.10.0.0/16
-                            │
-                            │
-                 ┌──────────┴──────────┐
-                 │                     │
-                 │ Private Route Table │
-                 │                     │
-                 └──────────┬──────────┘
-                            │
-                            │
-                 Private Subnet
-                  10.10.10.0/24
-                            │
-                            │
-                  EC2 Instance (Private)
-                            │
-             ┌──────────────┴──────────────┐
-             │                             │
-             │                             │
-     Primary Private IP            Secondary Private IP
-        10.10.10.10                   10.10.10.20
-```
 
 ---
 
@@ -534,7 +510,7 @@ t3.micro
 Key Pair
 
 ```
-Select Existing Key Pair
+Select Existing Key Pair or create new
 ```
 
 ---
@@ -631,7 +607,7 @@ Primary Private IPv4
 
 ---
 
-# PART 11 - Attach Second Private IP
+# PART 11 - Attach Second Private IP if You Want 
 
 Open
 
@@ -723,34 +699,304 @@ Secondary
 
 ---
 
-# PART 13 - Connect to EC2
 
-Since this EC2 has no public IP, connect using:
 
-* AWS Systems Manager Session Manager
+# PART 13 - Secure Access to Private EC2 Using Pritunl VPN and this is if You want Electic IP otherwise You Can Continue 
+
+Since the EC2 instance is deployed in a **private subnet**, it cannot be accessed directly from the internet.
+
+In production environments, organizations typically use one of the following methods:
+
+* AWS Client VPN
+* Pritunl VPN
+* OpenVPN
 * Bastion Host
-* VPN
-* Direct Connect
+* AWS Systems Manager Session Manager
+* AWS Direct Connect
 
-Recommended:
+In this lab, we will deploy a **Pritunl VPN Server** in a **public subnet** and securely access the private EC2 instance through an encrypted VPN tunnel.
+
+---
+
+
+# Step 13.1 - We Already Launch Pritunl VPN EC2
+
+Launch a new EC2 instance.
 
 ```
-EC2
+Name
 
-↓
+Pritunl-VPN
+```
 
-Connect
+AMI
 
-↓
+```
+Ubuntu 24.04 LTS
+```
 
-Session Manager
+Instance Type
 
-↓
+```
+t3.micro
+```
 
-Connect
+Network
+
+```
+Private-VPC
+```
+
+Subnet
+
+```
+Public-Subnet
+```
+
+Auto Assign Public IP
+
+```
+Enable
+```
+
+Security Group
+
+```
+Pritunl-SG
+```
+
+Launch the instance.
+
+---
+
+# Step 13.2 - Configure Security Group
+
+Inbound Rules
+
+| Type       | Port | Source         |
+| ---------- | ---- | -------------- |
+| SSH        | 22   | Your Public IP |
+| HTTP       | 80   | 0.0.0.0/0      |
+| HTTPS      | 443  | 0.0.0.0/0      |
+| Custom UDP | 1194 | 0.0.0.0/0      |
+
+Outbound
+
+```
+Allow All
 ```
 
 ---
+
+# Step 13.3 - Install MongoDB
+
+```bash
+sudo apt update
+
+sudo apt install gnupg curl -y
+
+curl -fsSL https://pgp.mongodb.com/server-8.0.asc | \
+sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg \
+--dearmor
+
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+
+sudo apt update
+
+sudo apt install mongodb-org -y
+
+sudo systemctl enable mongod
+
+sudo systemctl start mongod
+```
+
+Verify
+
+```bash
+sudo systemctl status mongod
+```
+
+---
+
+# Step 13.4 - Install Pritunl
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pritunl/pgp/master/pritunl_repo_pub.asc | \
+gpg --dearmor | sudo tee /usr/share/keyrings/pritunl.gpg >/dev/null
+
+echo "deb [signed-by=/usr/share/keyrings/pritunl.gpg] https://repo.pritunl.com/stable/apt noble main" | \
+sudo tee /etc/apt/sources.list.d/pritunl.list
+
+sudo apt update
+
+sudo apt install pritunl -y
+
+sudo systemctl enable pritunl
+
+sudo systemctl start pritunl
+```
+
+---
+
+# Step 13.5 - Configure MongoDB URI
+
+Edit
+
+```bash
+sudo nano /etc/pritunl.conf
+```
+
+Update
+
+```json
+{
+    "mongodb_uri":"mongodb://localhost:27017/pritunl"
+}
+```
+
+Restart
+
+```bash
+sudo systemctl restart pritunl
+```
+
+Retrieve setup key
+
+```bash
+sudo pritunl setup-key
+```
+
+Retrieve default credentials
+
+```bash
+sudo pritunl default-password
+```
+
+Open
+
+```
+https://Public-IP
+```
+
+Complete the initial setup.
+
+---
+
+# Step 13.6 - Create VPN Server
+
+| Setting           | Value                   |
+| ----------------- | ----------------------- |
+| Name              | AWS-VPN                 |
+| Protocol          | UDP                     |
+| Port              | 1194                    |
+| Virtual Network   | 172.31.250.0/24         |
+| DNS               | 8.8.8.8                 |
+| WireGuard         | Disabled                |
+| IPv6              | Disabled                |
+| Route All Traffic | Disabled (Split Tunnel) |
+
+Start the server.
+
+---
+
+# Step 13.7 - Add Route
+
+```
+Servers
+
+↓
+
+AWS-VPN
+
+↓
+
+Add Route
+```
+
+| Field       | Value        |
+| ----------- | ------------ |
+| Network     | 10.10.0.0/16 |
+| NAT         | Enabled      |
+| Net Gateway | Blank        |
+
+Save.
+
+---
+
+# Step 13.8 - Create Organization and User
+
+Create Organization
+
+```
+DevOps
+```
+
+Create User
+
+```
+username
+```
+
+Attach the organization to the VPN server.
+
+Download the user profile.
+
+---
+
+
+
+# Step 13.9 - Configure Private EC2 Security Group
+
+Add inbound rule
+
+| Type | Port | Source          |
+| ---- | ---- | --------------- |
+| SSH  | 22   | 172.31.250.0/24 |
+
+(Optional)
+
+| Type | Source          |
+| ---- | --------------- |
+| ICMP | 172.31.250.0/24 |
+
+---
+
+# Step 13.10 - Connect from Laptop
+
+Install the Pritunl Client.
+
+Import the downloaded profile.
+
+Connect.
+
+Your laptop receives a VPN IP such as
+
+```
+172.31.250.2
+```
+
+Verify
+
+```bash
+ping 10.10.10.10
+```
+
+Connect securely
+
+```bash
+ssh -i <Key Name> ubuntu@10.10.10.10
+```
+
+---
+
+# Result
+
+* The private EC2 remains inaccessible from the public internet.
+* Only authenticated VPN users can access the VPC.
+* SSH keys remain on the client machine and are never copied to the VPN server.
+* Split Tunnel ensures only traffic destined for `10.10.0.0/16` traverses the VPN, while normal internet browsing continues through the local ISP.
+* This architecture closely matches enterprise production environments for secure administrative access to private workloads.
+
 
 # PART 14 - Verify Inside Linux
 
@@ -800,42 +1046,9 @@ ip a show eth0
 
 ---
 
-# PART 15 - Verify Using AWS CLI
 
-Describe instance
 
-```bash
-aws ec2 describe-instances \
---instance-ids i-xxxxxxxx
-```
-
----
-
-Describe ENI
-
-```bash
-aws ec2 describe-network-interfaces \
---network-interface-ids eni-xxxxxxxx
-```
-
-Expected
-
-```json
-"PrivateIpAddresses":[
- {
-   "PrivateIpAddress":"10.10.10.10",
-   "Primary":true
- },
- {
-   "PrivateIpAddress":"10.10.10.20",
-   "Primary":false
- }
-]
-```
-
----
-
-# PART 16 - Stop and Start Test
+# PART 15 - Stop and Start Test
 
 Stop the EC2 instance.
 
@@ -865,7 +1078,7 @@ Private IPs remain attached to the ENI.
 
 ---
 
-# PART 17 - Reboot Test
+# PART 16 - Reboot Test
 
 Reboot the EC2.
 
@@ -887,7 +1100,7 @@ No changes occur.
 
 ---
 
-# PART 18 - Termination Test
+# PART 17 - Termination Test
 
 Terminate the EC2.
 
