@@ -1030,7 +1030,8 @@ Output
 ```
 10.10.10.10 10.10.10.20
 ```
-![Uploading image.png…]()
+<img width="939" height="95" alt="Screenshot 2026-06-13 at 6 06 12 PM" src="https://github.com/user-attachments/assets/20f43f67-5e59-449d-b396-36c6b97b4f6d" />
+
 
 
 ---
