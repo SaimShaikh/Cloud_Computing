@@ -1,54 +1,7 @@
 # AWS Athena Query Result Encryption — Master Guide
 ### Ensure AWS Athena Query Results Stored in Amazon S3 Are Encrypted at Rest
-**A Complete Beginner-to-Production Handbook | 41 Chapters**
 
----
 
-## Table of Contents
-
-| Chapter | Title |
-|---------|-------|
-| 1 | Introduction |
-| 2 | AWS Global Infrastructure |
-| 3 | Root User Security |
-| 4 | IAM Fundamentals |
-| 5 | Create IAM Groups |
-| 6 | Create IAM Users |
-| 7 | Create IAM Roles |
-| 8 | IAM Policies Deep Dive |
-| 9 | S3 Fundamentals |
-| 10 | S3 Bucket Policies |
-| 11 | Server-Side Encryption Concepts |
-| 12 | AWS KMS Deep Dive |
-| 13 | KMS Key Policies |
-| 14 | Athena Architecture |
-| 15 | AWS Glue Data Catalog |
-| 16 | Athena Workgroups |
-| 17 | Create Source S3 Bucket |
-| 18 | Upload Dataset |
-| 19 | Configure Athena Settings |
-| 20 | Create Athena Database |
-| 21 | Create Athena Tables |
-| 22 | Run SQL Queries |
-| 23 | Enable SSE-S3 Encryption |
-| 24 | Verify SSE-S3 Encryption |
-| 25 | IAM + KMS Permissions |
-| 26 | Enable SSE-KMS Encryption |
-| 27 | Verify KMS Encryption |
-| 28 | Cross-Account Access |
-| 29 | CloudTrail Auditing |
-| 30 | Monitoring with CloudWatch |
-| 31 | Production Architecture |
-| 32 | AWS CLI Commands |
-| 33 | Terraform Automation |
-| 34 | CI/CD Integration |
-| 35 | Troubleshooting |
-| 36 | Cost Optimization |
-| 37 | Security Best Practices |
-| 38 | Interview Questions |
-| 39 | Mini Project |
-| 40 | Enterprise Project |
-| 41 | Mastery Checklist |
 
 ---
 
