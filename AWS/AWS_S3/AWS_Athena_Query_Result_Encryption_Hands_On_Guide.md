@@ -33,52 +33,8 @@ By the end of this guide, you will be able to:
 
 ### Overall Architecture
 
-```
-User / Application
-        |
-        v
-   SQL Query Submitted
-        |
-        v
-  Amazon Athena Engine
-        |
-        |--- Reads Source Data from S3 (Source Bucket)
-        |
-        |--- Executes Query
-        |
-        |--- Generates Result (CSV file)
-        |
-        v
-  Encryption Decision
-        |
-        |-- SSE-S3  --> Amazon S3 encrypts using managed keys
-        |
-        |-- SSE-KMS --> Athena requests data key from AWS KMS
-                              |
-                              v
-                     KMS generates data key
-                              |
-                              v
-                     Athena encrypts result with data key
-                              |
-                              v
-        Encrypted CSV stored in S3 Results Bucket
+<img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/00c8e567-020e-4370-9a27-99e3ddf59151" />
 
-
-Access by Authorized User:
-        |
-        v
-  User requests the file from S3
-        |
-        v
-  KMS validates IAM + Key Policy permissions
-        |
-        v
-  KMS decrypts the data key
-        |
-        v
-  S3 returns decrypted file to user
-```
 
 ---
 
