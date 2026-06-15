@@ -836,6 +836,107 @@ sudo systemctl enable pritunl
 sudo systemctl start pritunl
 ```
 
+or Use Script 
+
+```bash
+#!/bin/bash
+
+set -e
+
+export DEBIAN_FRONTEND=noninteractive
+
+echo "========================================"
+echo "Updating System"
+echo "========================================"
+
+apt update -y
+apt upgrade -y
+
+apt install -y curl gnupg ca-certificates software-properties-common
+
+echo "========================================"
+echo "Installing MongoDB 8.0"
+echo "========================================"
+
+curl -fsSL https://pgp.mongodb.com/server-8.0.asc | 
+gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-8.0.list
+
+apt update -y
+
+apt install -y mongodb-org
+
+systemctl enable mongod
+systemctl start mongod
+
+echo "========================================"
+echo "Installing Pritunl"
+echo "========================================"
+
+curl -fsSL https://raw.githubusercontent.com/pritunl/pgp/master/pritunl_repo_pub.asc | 
+gpg --dearmor -o /usr/share/keyrings/pritunl.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/pritunl.gpg] https://repo.pritunl.com/stable/apt noble main" > /etc/apt/sources.list.d/pritunl.list
+
+apt update -y
+
+apt install -y pritunl
+
+systemctl enable pritunl
+systemctl start pritunl
+
+echo "========================================"
+echo "Configuring Pritunl"
+echo "========================================"
+
+cat >/etc/pritunl.conf <<EOF
+{
+"mongodb_uri":"mongodb://localhost:27017/pritunl"
+}
+EOF
+
+systemctl restart pritunl
+
+echo ""
+echo "========================================"
+echo "MongoDB Status"
+echo "========================================"
+systemctl --no-pager status mongod || true
+
+echo ""
+echo "========================================"
+echo "Pritunl Status"
+echo "========================================"
+systemctl --no-pager status pritunl || true
+
+echo ""
+echo "========================================"
+echo "Setup Key"
+echo "========================================"
+pritunl setup-key || true
+
+echo ""
+echo "========================================"
+echo "Default Password"
+echo "========================================"
+pritunl default-password || true
+
+echo ""
+echo "========================================"
+echo "Server URL"
+echo "========================================"
+
+IP=$(curl -s ifconfig.me)
+
+echo "https://$IP"
+
+echo ""
+echo "========================================"
+echo "Installation Complete"
+echo "========================================"
+
+```
 ---
 
 # Step 13.5 - Configure MongoDB URI
