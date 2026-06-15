@@ -318,6 +318,7 @@ Expected:
 ```text
 AccessDenied
 ```
+<img width="3342" height="407" alt="image" src="https://github.com/user-attachments/assets/cc549885-3551-44db-81a4-3194ac77f785" />
 
 or
 
@@ -328,7 +329,71 @@ MFA authentication required
 Deletion is blocked.
 
 ---
+## Now if you Delete 
+### Scenario 1: Delete the latest object from the AWS Console
 
+Suppose your bucket contains:
+
+```test.txt```
+
+In the AWS S3 Console, you select test.txt and click Delete.
+
+Result
+
+### ✅ The delete succeeds.
+
+AWS creates a Delete Marker.
+
+The actual object version is not permanently deleted.
+
+For example:
+
+```bash
+Version 1  ---> test.txt
+Version 2  ---> Delete Marker
+```
+
+<img width="3323" height="1523" alt="image" src="https://github.com/user-attachments/assets/01b4639f-9322-4c0d-91f3-f1d0b0033d1a" />
+
+
+You can still recover the object by removing the delete marker.
+
+### Scenario 2: Permanently delete a specific version in the AWS Console
+
+If you:
+
+- Open the bucket.
+- Enable Show versions.
+- Select a specific version.
+- Click Delete permanently.
+Result
+
+❌ AWS will require MFA.
+
+Without valid MFA, the permanent deletion will not succeed.
+
+This is exactly what you tested with the CLI:
+
+AccessDenied:
+
+Mfa Authentication must be used for this request
+
+<img width="3226" height="651" alt="image" src="https://github.com/user-attachments/assets/96231af1-3687-4eeb-9c26-00425fa580cb" />
+
+### Scenario 3: Suspend Versioning from the AWS Console
+
+If MFA Delete is enabled and you try to suspend versioning:
+
+❌ AWS will not allow the operation without the required MFA authentication.
+
+Summary
+- Action	AWS Console Behavior
+- Delete an object (latest version)	✅ Creates a Delete Marker
+- Restore object	✅ Possible by deleting the Delete Marker
+- Permanently delete an object version	❌ Requires MFA
+- Disable/Suspend Versioning	❌ Requires MFA
+- Permanently delete all versions	❌ Requires MFA
+---
 # Step 13: Delete With MFA
 
 Generate a fresh MFA code.
