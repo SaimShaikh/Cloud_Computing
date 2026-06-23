@@ -60,6 +60,8 @@ Examples:
 
 # 2. Incident Lifecycle
 
+```bash
+
 Alert Triggered
 ↓
 Incident Created
@@ -80,6 +82,7 @@ RCA
 ↓
 Preventive Action
 
+```
 ---
 
 # 3. Incident Detection & Initial Assessment
