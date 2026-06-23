@@ -1,34 +1,11 @@
 
-# Incident Management & Troubleshooting Guide
+# Incident Management & Troubleshooting 
 
 ## Cloud Engineer / DevOps Engineer / Production Support Engineer
 
 ---
 
-# Table of Contents
 
-1. Introduction to Incident Management
-2. Incident Lifecycle
-3. Incident Detection & Initial Assessment
-4. Application & Website Validation
-5. HTTP Error Code Analysis
-6. AWS Infrastructure Validation
-7. EC2 Diagnosis & Recovery
-8. OS-Level Troubleshooting
-9. Database Troubleshooting
-10. Load Balancer Troubleshooting
-11. DNS Troubleshooting
-12. SSL/TLS Troubleshooting
-13. Storage Troubleshooting
-14. Network Troubleshooting
-15. Monitoring & Alert Analysis
-16. Incident Resolution & Communication
-17. Root Cause Analysis (RCA)
-18. Disaster Recovery Validation
-19. Real Production Incidents
-20. Interview Preparation
-
----
 
 # 1. Introduction to Incident Management
 
