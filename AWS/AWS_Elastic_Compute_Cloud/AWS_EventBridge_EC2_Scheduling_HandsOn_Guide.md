@@ -1,20 +1,30 @@
-# AWS Hands-on Lab: Schedule EC2 Start & Stop Using Amazon EventBridge Scheduler
+
+
+# Schedule EC2 Start & Stop using Amazon EventBridge Scheduler (End-to-End)
+
+> This guide follows the current AWS Console workflow.
 
 ## Objective
 
-Automatically start an EC2 instance every day at **9:00 AM IST** and
-stop it every day at **7:00 PM IST** using Amazon EventBridge Scheduler.
+Automatically: - Start an EC2 instance every day at **09:00 AM IST** -
+Stop the same EC2 instance every day at **07:00 PM IST**
+
+------------------------------------------------------------------------
+
+# Architecture
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/5e773002-263e-4b71-9185-d0767ac88129" />
 
 ------------------------------------------------------------------------
 
 # Prerequisites
 
 -   AWS Account
--   One EC2 instance
--   IAM permissions to create roles and schedules
--   Region: `ap-south-1` (or the region where your EC2 instance exists)
+-   EC2 Instance
+-   IAM permissions
+-   Region selected correctly (same as EC2)
 
-Example Instance ID:
+Example Instance ID :
 
 ``` text
 i-04e8cc881de926954
@@ -22,214 +32,361 @@ i-04e8cc881de926954
 
 ------------------------------------------------------------------------
 
-# Architecture
-
-``` text
-Amazon EventBridge Scheduler
-            │
-            ▼
-   IAM Execution Role
-            │
-            ▼
- Amazon EC2 API (StartInstances / StopInstances)
-            │
-            ▼
-      EC2 Instance
-```
-
-------------------------------------------------------------------------
-
-# Part 1 -- Create IAM Execution Role
+# PART 1 -- Create IAM Execution Role
 
 ## Step 1
 
-Go to:
+AWS Console
 
 ``` text
 IAM
 → Roles
-→ Create Role
+→ Create role
 ```
 
-Choose:
+## Step 2
+
+Trusted Entity
+
+Select
 
 ``` text
-Trusted Entity Type
-→ Custom Trust Policy
+Custom trust policy
 ```
 
-Paste:
+Paste
 
 ``` json
 {
-  "Version": "2012-10-17",
-  "Statement": [
+  "Version":"2012-10-17",
+  "Statement":[
     {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "scheduler.amazonaws.com"
+      "Effect":"Allow",
+      "Principal":{
+        "Service":"scheduler.amazonaws.com"
       },
-      "Action": "sts:AssumeRole"
+      "Action":"sts:AssumeRole"
     }
   ]
 }
 ```
 
-Click **Next**.
+Click **Next**
 
-## Step 2
+------------------------------------------------------------------------
 
-Attach policy:
+## Step 3
+
+Search policy
 
 ``` text
 AmazonEC2FullAccess
 ```
 
+Select it.
+
+> Lab purpose only.
 > For production, replace this with a least-privilege policy allowing
-> only `ec2:StartInstances` and `ec2:StopInstances` on the required
-> instance.
+> only `ec2:StartInstances` and `ec2:StopInstances` on the required instance.
 
-## Step 3
+Click **Next**
 
-Role Name:
+------------------------------------------------------------------------
+
+## Step 4
+
+Role Name
 
 ``` text
 instance_Sch
 ```
 
-Click **Create Role**.
+Click
+
+``` text
+Create Role
+```
 
 ------------------------------------------------------------------------
 
-# Part 2 -- Create Start Schedule
+# PART 2 -- Create START Schedule
+
+## Step 1
+
+Open
+
+``` text
+Amazon EventBridge
+→ Scheduler
+→ Create Schedule
+```
+
+------------------------------------------------------------------------
 
 ## Schedule Details
 
-  Setting                Value
-  ---------------------- -----------------
-  Schedule Name          Start-EC2-Daily
-  Schedule Group         default
-  Occurrence             Recurring
-  Schedule Type          Cron
-  Cron                   `0 9 * * ? *`
-  Time Zone              Asia/Calcutta
-  Flexible Time Window   OFF
+  Field            Value
+  ---------------- ------------------------------------
+  Schedule Name    Start-EC2-Daily
+  Description      Automatically starts EC2 every day
+  Schedule Group   default
+  Occurrence       Recurring
+  Time Zone        Asia/Calcutta
+  Schedule Type    Cron-based
 
-## Target
+Cron Fields
 
--   All APIs
--   Amazon EC2
--   API: `StartInstances`
+  Min   Hr   Day   Month   Week   Year
+  ----- ---- ----- ------- ------ ------
+  0     9    \*    \*      ?      \*
 
-Payload:
+Meaning:
 
-``` json
-{
-  "InstanceIds": [
-    "i-04e8cc881de926954"
-  ]
-}
+``` text
+Every day at 09:00 AM IST
 ```
 
-## Settings
+Flexible Time Window
 
-  Setting                   Value
-  ------------------------- -----------------
-  Enable Schedule           Enabled
-  Action After Completion   None
-  Retry                     Disabled
-  Dead Letter Queue         None
-  Encryption                AWS Managed Key
-  Execution Role            instance_Sch
+``` text
+OFF
+```
 
-Review and click **Create schedule**.
+Timeframe
+
+``` text
+No End Date
+```
+
+Click **Next**
 
 ------------------------------------------------------------------------
 
-# Part 3 -- Create Stop Schedule
+## Select Target
 
-Use the same settings except:
+Choose
 
-  Setting         Value
-  --------------- ----------------
-  Schedule Name   Stop-EC2-Daily
-  API             StopInstances
-  Cron            `0 19 * * ? *`
+``` text
+All APIs
+```
 
-Payload:
+Search
+
+``` text
+StartInstances
+```
+
+Select
+
+``` text
+Amazon EC2 → StartInstances
+```
+
+Payload
 
 ``` json
 {
-  "InstanceIds": [
-    "i-04e8cc881de926954"
+  "InstanceIds":[
+    "Instance ID"
   ]
 }
 ```
 
-Execution Role:
+Click **Next**
+
+------------------------------------------------------------------------
+
+## Settings
+
+Schedule State
+
+``` text
+Enabled
+```
+
+Action after completion
+
+``` text
+None
+```
+
+Retry
+
+``` text
+Disabled
+```
+
+Dead Letter Queue
+
+``` text
+None
+```
+
+Encryption
+
+``` text
+AWS Managed Key
+```
+
+Permissions
+
+``` text
+Use Existing Role
+```
+
+Select Your Role
 
 ``` text
 instance_Sch
 ```
 
-Click **Create schedule**.
+Click **Next**
 
 ------------------------------------------------------------------------
 
-# Final Result
+## Review
+
+Verify:
+
+-   Schedule Name
+-   Cron
+-   API = StartInstances
+-   Instance ID
+-   Role = instance_Sch
+
+Click
+
+``` text
+Create Schedule
+```
+
+------------------------------------------------------------------------
+
+# PART 3 -- Create STOP Schedule
+
+Repeat the same process.
+
+Only change:
+
+  Field           Value
+  --------------- -----------------
+  Schedule Name   Stop-EC2-Daily
+  API             StopInstances
+  Cron            0 19 \* \* ? \*
+
+Meaning
+
+``` text
+Every day at 07:00 PM IST
+```
+
+Payload
+
+``` json
+{
+  "InstanceIds":[
+    "Your Instance ID"
+  ]
+}
+```
+
+Use role
+
+``` text
+instance_Sch
+```
+
+Click
+
+``` text
+Create Schedule
+```
+
+------------------------------------------------------------------------
+
+# Verification
+
+Go to
+
+``` text
+Amazon EventBridge
+→ Scheduler
+```
+
+You should see
+
+``` text
+Start-EC2-Daily   Enabled
+Stop-EC2-Daily    Enabled
+```
+<img width="3339" height="1036" alt="image" src="https://github.com/user-attachments/assets/0d225c08-c484-4479-9b40-06337140bdea" />
+
+
+------------------------------------------------------------------------
+
+# Testing
+
+## Start
+
+1.  Stop EC2 manually.
+2.  Change cron to 2 minutes ahead.
+3.  Wait.
+4.  Verify
+
+``` text
+Stopped
+ ↓
+Pending
+ ↓
+Running
+```
+
+## Stop
+
+1.  Start EC2 manually.
+2.  Change cron to 2 minutes ahead.
+3.  Wait.
+4.  Verify
+
+``` text
+Running
+ ↓
+Stopping
+ ↓
+Stopped
+```
+
+Restore production cron afterwards.
+
+------------------------------------------------------------------------
+
+# Troubleshooting
+
+  Problem               Fix
+  --------------------- ----------------------------------------------
+  AccessDenied          Check IAM policy
+  Cannot assume role    Verify trust policy
+  Wrong instance        Check payload JSON
+  Schedule never runs   Verify region, cron, timezone, enabled state
+  Role not visible      Refresh role list after creation
+
+------------------------------------------------------------------------
+
+# Production Best Practices
+
+-   Use least-privilege IAM policy.
+-   Restrict to a specific EC2 ARN.
+-   Keep Flexible Time Window OFF.
+-   Monitor executions with CloudWatch.
+-   Review IAM permissions periodically.
+
+------------------------------------------------------------------------
+
+# Final Outcome
 
   Schedule          API              Time
   ----------------- ---------------- --------------
   Start-EC2-Daily   StartInstances   09:00 AM IST
   Stop-EC2-Daily    StopInstances    07:00 PM IST
 
-------------------------------------------------------------------------
-
-# Testing
-
-1.  Edit the cron to run 2--3 minutes from the current time.
-2.  Stop (or start) the EC2 instance manually.
-3.  Wait for the scheduled time.
-4.  Verify:
-    -   Start schedule: `Stopped → Pending → Running`
-    -   Stop schedule: `Running → Stopping → Stopped`
-5.  Restore the production cron expressions after testing.
-
-------------------------------------------------------------------------
-
-# Production Best Practices
-
--   Use a least-privilege IAM policy.
--   Scope permissions to the specific EC2 instance ARN.
--   Keep Flexible Time Window OFF for exact execution.
--   Monitor schedule executions with CloudWatch logs/metrics if
-    required.
--   Periodically review IAM permissions.
-
-------------------------------------------------------------------------
-
-# Troubleshooting
-
-  -----------------------------------------------------------------------
-  Issue                         Solution
-  ----------------------------- -----------------------------------------
-  AccessDenied                  Verify IAM role permissions
-
-  Schedule doesn't run          Confirm cron, time zone, and schedule is
-                                enabled
-
-  Role cannot be assumed        Verify trust policy uses
-                                `scheduler.amazonaws.com`
-
-  Wrong instance affected       Verify the Instance ID in the payload
-  -----------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-# Success Criteria
-
--   Two schedules are created.
--   EC2 starts automatically at **09:00 AM IST**.
--   EC2 stops automatically at **07:00 PM IST**.
--   EventBridge Scheduler uses the `instance_Sch` execution role
-    successfully.
+Lab completed successfully.
