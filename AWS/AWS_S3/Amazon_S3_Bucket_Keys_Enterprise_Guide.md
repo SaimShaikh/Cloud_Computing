@@ -860,7 +860,13 @@ Estimated monthly savings: $0.33+/month (depends on upload frequency)
 3. Verify bucket key is enabled:
 ```bash
 aws s3api get-bucket-encryption --bucket my-bucket
+aws s3api get-bucket-encryption \
+  --bucket <Bucket Name>
+
 ```
+
+<img width="1168" height="463" alt="Screenshot 2026-06-26 at 5 18 35 PM" src="https://github.com/user-attachments/assets/f292b9e0-2dcf-43ce-bf48-b3325683a557" />
+
 
 **Expected output:**
 ```json
@@ -921,21 +927,7 @@ for bucket in "${BUCKET_LIST[@]}"; do
 done
 ```
 
-**Multiple Buckets (Terraform):**
 
-```hcl
-resource "aws_s3_bucket_server_side_encryption_configuration" "example" {
-  bucket = aws_s3_bucket.example.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = aws_kms_key.example.arn
-    }
-    bucket_key_enabled = true
-  }
-}
-```
 
 ### 10.3 Pattern 3: Audit Existing Buckets for Optimization
 
