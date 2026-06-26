@@ -1,31 +1,5 @@
 # Complete Guide: EC2 Savings Plans Calculation & Cost Optimization for 9-Hour Daily Operations
 
-**Subtitle:** Calculate, Compare, and Optimize EC2 Savings Plans for Part-Time Server Operations  
-**Author:** AI Generated (Claude by Anthropic)  
-**Version:** 1.0  
-**Last Updated:** June 2026  
-**Estimated Reading Time:** 5–7 Hours  
-**Lab Duration:** 2–3 Hours  
-**Difficulty Level:** Beginner to Advanced  
-
----
-
-## Table of Contents
-
-1. [Chapter 1 — Introduction & Cost Problem](#chapter-1--introduction--cost-problem)
-2. [Chapter 2 — EC2 Pricing Models Explained](#chapter-2--ec2-pricing-models-explained)
-3. [Chapter 3 — Savings Plans Deep Dive](#chapter-3--savings-plans-deep-dive)
-4. [Chapter 4 — 9-Hour Daily Operations Analysis](#chapter-4--9-hour-daily-operations-analysis)
-5. [Chapter 5 — Cost Calculation Methods](#chapter-5--cost-calculation-methods)
-6. [Chapter 6 — Real-World Cost Scenarios](#chapter-6--real-world-cost-scenarios)
-7. [Chapter 7 — Savings Plan vs. On-Demand vs. Reserved Instances](#chapter-7--savings-plan-vs-on-demand-vs-reserved-instances)
-8. [Chapter 8 — Hands-on Lab: Calculate Your Costs](#chapter-8--hands-on-lab-calculate-your-costs)
-9. [Chapter 9 — Optimization Strategies](#chapter-9--optimization-strategies)
-10. [Chapter 10 — Hourly Breakdown & Blended Rates](#chapter-10--hourly-breakdown--blended-rates)
-11. [Chapter 11 — Interview Questions](#chapter-11--interview-questions)
-12. [Chapter 12 — Cost Calculator Tools](#chapter-12--cost-calculator-tools)
-13. [Chapter 13 — Summary & Quick Reference](#chapter-13--summary--quick-reference)
-
 ---
 
 ## Chapter 1 — Introduction & Cost Problem
