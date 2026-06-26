@@ -1,34 +1,10 @@
 # Comprehensive Guide: Amazon S3 Bucket Keys for Cost Optimization
 
-**Subtitle:** Complete Enterprise Guide to S3 Bucket Keys, KMS Integration, and Cost Savings  
-**Author:** AI Generated (Claude by Anthropic)  
-**Version:** 1.0  
-**Last Updated:** June 2026  
-**Estimated Reading Time:** 4–6 Hours  
-**Lab Duration:** 2–3 Hours  
-**Difficulty Level:** Beginner to Advanced  
+
 
 ---
 
-## Table of Contents
 
-1. [Chapter 1 — Introduction](#chapter-1--introduction)
-2. [Chapter 2 — Learning Objectives](#chapter-2--learning-objectives)
-3. [Chapter 3 — Prerequisites](#chapter-3--prerequisites)
-4. [Chapter 4 — Architecture & Fundamentals](#chapter-4--architecture--fundamentals)
-5. [Chapter 5 — S3 Overview](#chapter-5--s3-overview)
-6. [Chapter 6 — KMS Deep Dive](#chapter-6--kms-deep-dive)
-7. [Chapter 7 — S3 Bucket Keys Explained](#chapter-7--s3-bucket-keys-explained)
-8. [Chapter 8 — Cost Analysis](#chapter-8--cost-analysis)
-9. [Chapter 9 — Hands-on Lab](#chapter-9--hands-on-lab)
-10. [Chapter 10 — Implementation Patterns](#chapter-10--implementation-patterns)
-11. [Chapter 11 — Security Considerations](#chapter-11--security-considerations)
-12. [Chapter 12 — Troubleshooting](#chapter-12--troubleshooting)
-13. [Chapter 13 — Interview Questions](#chapter-13--interview-questions)
-14. [Chapter 14 — Real-World Projects](#chapter-14--real-world-projects)
-15. [Chapter 15 — Summary & Cheat Sheet](#chapter-15--summary--cheat-sheet)
-
----
 
 ## Chapter 1 — Introduction
 
