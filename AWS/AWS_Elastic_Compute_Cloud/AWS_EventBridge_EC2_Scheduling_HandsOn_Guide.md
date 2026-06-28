@@ -89,6 +89,8 @@ Select it.
 > For production, replace this with a least-privilege policy allowing
 > only `ec2:StartInstances` and `ec2:StopInstances` on the required instance.
 
+<img width="1643" height="832" alt="image" src="https://github.com/user-attachments/assets/12847ffb-40e0-4e7c-bbaa-a79f7b252dc1" />
+
 Click **Next**
 
 ------------------------------------------------------------------------
