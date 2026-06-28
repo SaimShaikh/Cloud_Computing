@@ -460,6 +460,10 @@ One tag now supports two CPUs.
 
 ---
 
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/27fcd2f5-90dc-4700-96b7-b3f0b83e0990" />
+
+---
+
 # Part 11 - Launch AWS Graviton EC2
 
 Launch instance.
