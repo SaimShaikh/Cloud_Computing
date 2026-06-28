@@ -667,6 +667,7 @@ standard_init_linux.go
 
 exec format error
 ```
+<img width="1680" height="1050" alt="Screenshot 2026-06-28 at 5 10 59 PM" src="https://github.com/user-attachments/assets/b4e7082d-f564-4dfc-9ac0-030ab02be354" />
 
 Reason
 
