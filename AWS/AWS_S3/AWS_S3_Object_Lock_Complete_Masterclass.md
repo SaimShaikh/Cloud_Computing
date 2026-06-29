@@ -1,42 +1,5 @@
 # AWS S3 Object Lock -- Complete Masterclass
 
-> **Author:** ChatGPT\
-> **Target Audience:** AWS Beginners, DevOps Engineers, Cloud Engineers,
-> Solutions Architects
-
-------------------------------------------------------------------------
-
-# Table of Contents
-
-1.  Introduction
-2.  What is S3 Object Lock?
-3.  Why Object Lock Exists
-4.  WORM (Write Once Read Many)
-5.  Object Lock Architecture
-6.  Prerequisites
-7.  Versioning Requirement
-8.  Governance Mode
-9.  Compliance Mode
-10. Governance vs Compliance
-11. Retention Period
-12. Legal Hold
-13. Retention vs Legal Hold
-14. Default Bucket Retention
-15. Object-Level Retention
-16. Hands-on Labs
-17. AWS CLI Commands
-18. Terraform Example
-19. IAM Permissions
-20. Lifecycle Behavior
-21. Replication
-22. CloudTrail Auditing
-23. Cost Considerations
-24. Best Practices
-25. Edge Cases
-26. Troubleshooting
-27. Interview Questions
-28. Cleanup
-
 ------------------------------------------------------------------------
 
 # 1. Introduction
