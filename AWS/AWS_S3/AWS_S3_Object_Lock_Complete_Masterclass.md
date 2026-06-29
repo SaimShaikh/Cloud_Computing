@@ -92,6 +92,8 @@ Problems solved:
 
 -   Users with special IAM permission can bypass.
 -   Suitable for internal governance.
+-   Testing retention periods, preventing accidental changes while keeping an "escape hatch".
+-   users with s3:BypassGovernanceRetention can delete or alter the lock.
 
 Permission:
 
@@ -104,6 +106,7 @@ Permission:
 -   Nobody can bypass.
 -   Root user cannot delete objects.
 -   AWS Support cannot remove protection.
+-   Retention days can only be extended; they can never be reduced or removed.
 
 Recommended for regulated industries.
 
