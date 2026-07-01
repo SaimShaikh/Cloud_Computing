@@ -1,24 +1,4 @@
-# AWS Transit Gateway Peering — Complete Beginner-to-Production Guide
-
-> A hands-on, **AWS Console-based** guide covering Transit Gateway (TGW) Peering — connecting two Transit Gateways across regions (or accounts) so VPCs attached to each can talk to each other.
-
----
-
-## Table of Contents
-
-1. [What is Transit Gateway Peering?](#1-what-is-transit-gateway-peering)
-2. [Why Use Transit Gateway Peering?](#2-why-use-transit-gateway-peering)
-3. [How It Works — Core Concepts](#3-how-it-works--core-concepts)
-4. [Advantages](#4-advantages)
-5. [Disadvantages / Limitations](#5-disadvantages--limitations)
-6. [Pricing Overview](#6-pricing-overview)
-7. [Assumptions](#7-assumptions)
-8. [Practical Lab Guide — Peering 2 TGWs Across Regions (Console)](#8-practical-lab-guide--peering-2-tgws-across-regions-console)
-9. [Production-Level Architecture](#9-production-level-architecture)
-10. [Edge Cases](#10-edge-cases)
-11. [Best Practices](#11-best-practices)
-12. [Interview Q&A + Cheat Sheet](#12-interview-qa--cheat-sheet)
-13. [Cleanup](#13-cleanup)
+# AWS Transit Gateway Peering 
 
 ---
 
@@ -28,18 +8,8 @@
 
 Think of it like connecting two separate "hub airports" with a direct long-haul flight: each hub still manages its own local routes (its own attached VPCs), but the **peering connection** is the single link that lets traffic cross from one hub's network to the other's.
 
-```
-   Region: ap-south-1                         Region: us-east-1
-   ┌─────────────────────────┐                ┌─────────────────────────┐
-   │   Transit Gateway-1       │   Peering     │   Transit Gateway-2       │
-   │   (Mumbai)                │◄─────────────►│   (N. Virginia)           │
-   │                           │  Attachment    │                           │
-   │   Attach-VPC-A            │                │   Attach-VPC-C            │
-   │   Attach-VPC-B            │                │   Attach-VPC-D            │
-   └─────────────────────────┘                └─────────────────────────┘
-            │       │                                   │       │
-         VPC-A    VPC-B                              VPC-C    VPC-D
-```
+<img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/37f46eed-3974-4d64-a495-e9adf7401772" />
+
 
 A TGW peering connection is itself a special kind of **attachment** — each TGW sees the peering as an attachment in its own route table, exactly like a VPC attachment.
 
@@ -103,21 +73,7 @@ Each TGW has an **Amazon-side ASN** (Autonomous System Number). The two TGWs bei
 
 ### 3.6 Full Architecture Diagram
 
-```
-        Region A (e.g. ap-south-1)                    Region B (e.g. us-east-1)
-   ┌───────────────────────────────┐             ┌───────────────────────────────┐
-   │                                 │             │                                 │
-   │   ┌─────────────────────┐       │   Peering   │       ┌─────────────────────┐   │
-   │   │  Transit Gateway-1    │◄─────┼─────────────┼──────►│  Transit Gateway-2    │   │
-   │   │  ASN: 64512           │      │ Attachment  │       │  ASN: 64513           │   │
-   │   └──────────┬──────────┘       │             │       └──────────┬──────────┘   │
-   │      Attach-A │   Attach-B       │             │      Attach-C │   Attach-D      │
-   │         ┌─────┴─────┐ ┌──────┐   │             │   ┌──────┐ ┌─────┴─────┐         │
-   │         │   VPC-A    │ │VPC-B │   │             │   │VPC-C │ │   VPC-D    │         │
-   │         │[VPC_CIDR_1]│ │[..2] │   │             │   │[..3] │ │[VPC_CIDR_4]│         │
-   │         └───────────┘ └──────┘   │             │   └──────┘ └───────────┘         │
-   └───────────────────────────────┘             └───────────────────────────────┘
-```
+<img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/76bcea54-0837-4899-bbad-ccf242b1a4af" />
 
 ---
 
@@ -513,4 +469,3 @@ Tear down resources in this order using the **Console**, in **both** regions:
 
 ---
 
-**End of Guide.** Pair this with the base **AWS Transit Gateway** guide for a complete picture: single-region hub-and-spoke first, then multi-region/multi-account connectivity via peering on top of it.
