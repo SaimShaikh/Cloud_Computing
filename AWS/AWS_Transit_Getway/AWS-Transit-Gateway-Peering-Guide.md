@@ -281,7 +281,8 @@ Expected result: successful replies, confirming traffic flows VPC-A → TGW-1 �
 ### 9.2 Multi-Region Mesh Design (3+ Regions)
 
 Because peering is non-transitive, connecting 3 regions requires a peering connection for **every pair**:
-![Uploading image.png…]()
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/70617393-c425-44f0-8b37-436f03edb5f1" />
+
 
 
 For 4+ regions, evaluate whether a **hub region** pattern (one "core" TGW that every other region peers with) better fits the access pattern than a full mesh — but remember: the hub region's TGW does **not** automatically route Region-B traffic to Region-C just because both peer with it; you'd still need explicit routing logic, and AWS TGW peering itself remains point-to-point only. A hub-and-spoke region design is usually paired with a **centralized inspection/transit VPC** in the hub region rather than relying on "transit-like" behavior from TGW peering alone.
