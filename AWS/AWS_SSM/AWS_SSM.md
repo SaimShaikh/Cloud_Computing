@@ -507,37 +507,9 @@ Available
 
 ---
 
-# Step 18: Verify Managed Node
 
-Navigate:
 
-```text
-AWS Systems Manager
-→ Fleet Manager
-→ Managed Nodes
-```
-
-Expected Result:
-
-```text
-private-server
-```
-
-Status:
-
-```text
-Running
-```
-
-Ping Status:
-
-```text
-Online
-```
-
----
-
-# Step 19: Connect Using Session Manager
+# Step 18: Connect Using Session Manager
 
 Navigate:
 
