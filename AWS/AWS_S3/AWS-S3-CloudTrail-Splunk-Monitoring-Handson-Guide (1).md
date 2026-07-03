@@ -1,38 +1,9 @@
 # AWS S3 Object-Level Activity Monitoring with CloudTrail, SQS & Splunk
-## Complete Hands-On Production-Style Lab Guide (Demo/POC Build)
 
-**Author:** Saime Shaikh
-**Status:** Final — ready for team walkthrough / demo
-**Version:** 1.0 (2026-07-03)
-**Project Type:** Cloud Security / DevOps Monitoring Project
-**Scope:** Demo / POC build (not the production-hardened variant — see Section 14.1 for what changes in production)
-**Difficulty:** Beginner → Intermediate → Enterprise Perspective
-**Stack:** Amazon S3, AWS CloudTrail (Data Events), Amazon SQS, IAM, EC2, Splunk Enterprise, Splunk Add-on for AWS
-
-> This guide follows a strict "no skipped steps" hands-on format. Every AWS console click, every CLI command, every IAM policy, and every Splunk configuration screen is documented in order. Follow it top to bottom exactly once for the demo build, then re-read the "Enterprise Perspective" call-outs to understand how this scales to production.
->
-> **Before presenting to the team:** replace every `<yourname>`, `<ACCOUNT_ID>`, `<ACCESS_KEY_ID>`, and `<INSTANCE_ID>` placeholder with your real values, or leave them as-is if this is being shared as a reusable team template (recommended for a shared doc).
 
 ---
 
-## Table of Contents
 
-1. [Project Overview](#1-project-overview)
-2. [Prerequisites](#2-prerequisites)
-3. [Core Concepts Explained From First Principles](#3-core-concepts-explained-from-first-principles)
-4. [Architecture](#4-architecture)
-5. [Hands-On Lab Part 1 — S3 Buckets Foundation](#5-hands-on-lab-part-1--s3-buckets-foundation)
-6. [Hands-On Lab Part 2 — CloudTrail Configuration](#6-hands-on-lab-part-2--cloudtrail-configuration)
-7. [Hands-On Lab Part 3 — Amazon SQS + Event Notification Wiring](#7-hands-on-lab-part-3--amazon-sqs--event-notification-wiring)
-8. [Hands-On Lab Part 4 — IAM for Splunk](#8-hands-on-lab-part-4--iam-for-splunk)
-9. [Hands-On Lab Part 5 — EC2 + Splunk Enterprise Installation](#9-hands-on-lab-part-5--ec2--splunk-enterprise-installation)
-10. [Hands-On Lab Part 6 — Splunk Add-on for AWS Configuration](#10-hands-on-lab-part-6--splunk-add-on-for-aws-configuration)
-11. [End-to-End Testing & Verification](#11-end-to-end-testing--verification)
-12. [Splunk SPL Searches & Dashboard Build](#12-splunk-spl-searches--dashboard-build)
-13. [Alerts, Troubleshooting & Failure Scenarios](#13-alerts-troubleshooting--failure-scenarios)
-14. [Best Practices, Cost, Cleanup & Interview Cheat Sheet](#14-best-practices-cost-cleanup--interview-cheat-sheet)
-
----
 
 ## 1. Project Overview
 
@@ -219,57 +190,7 @@ Splunk is a **log indexing, search, and visualization platform**. In this pipeli
 
 ### 4.1 High-Level Flow
 
-```
-+-----------+   PutObject / GetObject / DeleteObject
-|  User /   | ---------------------------------------+
-|  Client   |                                         v
-+-----------+                          +----------------------------+
-                                        |  S3 Application Bucket     |
-                                        |  (demo-upload-bucket)      |
-                                        +--------------+---------------+
-                                                       |
-                                                       | API call observed by
-                                                       v
-                                        +----------------------------------+
-                                        |  AWS CloudTrail                   |
-                                        |  (Data Events enabled on the      |
-                                        |   application bucket)             |
-                                        +--------------+---------------------+
-                                                       |
-                                                       | writes compressed .json.gz log file
-                                                       v
-                                        +----------------------------------+
-                                        |  CloudTrail Log Bucket            |
-                                        |  (demo-cloudtrail-logs)           |
-                                        +--------------+---------------------+
-                                                       |
-                                                       | S3 Event Notification
-                                                       | (s3:ObjectCreated:*)
-                                                       v
-                                        +----------------------------------+
-                                        |  Amazon SQS Queue                 |
-                                        |  (cloudtrail-log-queue)           |
-                                        |  + Dead Letter Queue (DLQ)        |
-                                        +--------------+---------------------+
-                                                       |
-                                                       | polled by
-                                                       v
-                                        +----------------------------------+
-                                        |  EC2 Instance                     |
-                                        |  Splunk Enterprise +              |
-                                        |  Splunk Add-on for AWS            |
-                                        |  (SQS-Based S3 input)             |
-                                        +--------------+---------------------+
-                                                       |
-                                                       | parses & indexes
-                                                       v
-                                        +----------------------------------+
-                                        |  Splunk Index: cloudtrail_s3      |
-                                        |  -> SPL Searches                  |
-                                        |  -> Dashboards                    |
-                                        |  -> Alerts                        |
-                                        +----------------------------------+
-```
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/16abc3a5-e4d2-476f-ad7e-39f38981739d" />
 
 **Plain-text version of the same flow (safe to paste anywhere, no formatting required):**
 
