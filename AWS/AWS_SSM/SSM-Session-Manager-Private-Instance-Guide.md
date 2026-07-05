@@ -1,5 +1,8 @@
 # AWS Systems Manager (SSM) Agent Installation & Session Manager — Login to Private EC2 Instance (No SSH, No Bastion, No Public IP)
 
+**Author:** Saime Shaikh
+**Topic:** SSM Agent Installation, Verification & Secure Shell Access to a Private Instance via Session Manager
+**Level:** Hands-on Lab (Console-First)
 
 ---
 
@@ -12,8 +15,8 @@
 5. Lab Setup — Building the Environment
 6. Step 1: Create IAM Role for SSM
 7. Step 2: Launch the Private EC2 Instance
-8. Step 3: Verify SSM Agent Is Installed & Running
-9. Step 4: Set Up VPC Interface Endpoints (Required for Private Subnet — No NAT/IGW)
+8. Step 3: Set Up VPC Interface Endpoints (Required for Private Subnet — No NAT/IGW)
+9. Step 4: Verify SSM Agent Is Installed & Running
 10. Step 5: Connect to the Private Instance Using Session Manager
 11. Step 6: Verify the Session (Prove It's Actually Private)
 12. CLI Commands Reference (Equivalent Actions)
@@ -173,19 +176,21 @@ Your Laptop → AWS Systems Manager Service → Private Instance (SSM Agent, out
 
 ## ⚠️ READ THIS BEFORE YOU START — Which Path Are You Doing?
 
-This lab is written for **Scenario B: a fully private subnet with NO NAT Gateway and NO Internet Gateway**. That is the harder, more realistic enterprise pattern, and it is the whole reason **Step 4 (VPC Interface Endpoints) is mandatory, not optional, in this guide.**
+This lab is written for **Scenario B: a fully private subnet with NO NAT Gateway and NO Internet Gateway**. That is the harder, more realistic enterprise pattern, and it is the whole reason **Step 3 (VPC Interface Endpoints) is mandatory, not optional, in this guide.**
 
-Confirm which path applies to you **before you launch the EC2 instance**, because it changes whether Step 4 is required:
+Confirm which path applies to you **before you launch the EC2 instance**, because it changes whether Step 3 is required:
 
-| Your Subnet Has... | Path | Do You Need Step 4 (VPC Endpoints)? |
+| Your Subnet Has... | Path | Do You Need Step 3 (VPC Endpoints)? |
 |---|---|---|
-| A route to an Internet Gateway directly (public subnet) | Scenario A | ❌ No — skip Step 4 entirely |
-| A route to a NAT Gateway (private subnet, but NAT exists) | Scenario A | ❌ No — skip Step 4 entirely |
+| A route to an Internet Gateway directly (public subnet) | Scenario A | ❌ No — skip Step 3 entirely, go straight to Step 4 |
+| A route to a NAT Gateway (private subnet, but NAT exists) | Scenario A | ❌ No — skip Step 3 entirely, go straight to Step 4 |
 | **No NAT Gateway and no IGW route at all** (fully isolated) | **Scenario B (this guide)** | ✅ **Yes — mandatory.** Without it, the SSM Agent has no path to the SSM service, the instance will never show "Online" in Fleet Manager, and Session Manager will never connect. |
 
 **This guide builds Scenario B from scratch**, including creating a subnet with zero NAT/IGW route on purpose, specifically so you get hands-on practice with VPC Interface Endpoints — this is the part most tutorials skip and the part interviewers actually ask about.
 
-If you'd rather do the simpler version first, use a subnet that already has a NAT Gateway, skip Step 4 entirely, and go straight from Step 3 to Step 5.
+**Sequence matters — this is why the steps are ordered the way they are:** Step 1 (IAM Role) → Step 2 (Launch Instance) → Step 3 (VPC Endpoints) → Step 4 (Verify Agent/Fleet Manager) → Step 5 (Connect). Endpoints are created *before* you ever check Fleet Manager, so you never see a confusing "0 managed nodes" screen for something that isn't actually broken yet.
+
+If you'd rather do the simpler version first, use a subnet that already has a NAT Gateway, skip Step 3 entirely, and go straight from Step 2 to Step 4.
 
 ---
 
@@ -273,25 +278,80 @@ These are exactly the API calls the SSM Agent makes internally — nothing more.
 
 ---
 
-## 8. Step 3: Verify SSM Agent Is Installed & Running
+## 8. Step 3: Set Up VPC Interface Endpoints (Required for Private Subnet — No NAT/IGW)
 
-Amazon Linux 2023, Amazon Linux 2, and Ubuntu 20.04+ AMIs from AWS come with the SSM Agent **pre-installed**. You do not need to install it manually on these AMIs. However, you must always **verify** it's running and registered — this is the step people skip and then wonder why Session Manager fails.
+Do this **before** checking Fleet Manager. Since `ssm-private-subnet` has **no route to the internet** (no NAT Gateway, no IGW), the SSM Agent cannot reach the public SSM service endpoints — and it never will, no matter how long you wait, until this step is done. We fix this using **AWS PrivateLink / VPC Interface Endpoints**, which place SSM's endpoints directly inside your VPC.
 
-### 8.1 Check via Systems Manager Console (Fleet Manager)
+**Three endpoints are required together** (all three, not just one):
+
+| Endpoint | Purpose |
+|---|---|
+| `com.amazonaws.<region>.ssm` | Core Systems Manager API calls |
+| `com.amazonaws.<region>.ssmmessages` | Session Manager's actual data channel (the shell traffic) |
+| `com.amazonaws.<region>.ec2messages` | Agent-to-service messaging used by SSM |
+
+### 8.1 Create the Endpoint Security Group
+
+1. Go to **EC2 console** → **Security Groups** → **Create security group**
+2. **Name:** `ssm-endpoint-sg`
+3. **VPC:** `ssm-lab-vpc`
+4. **Inbound rules:**
+   - Type: **HTTPS**, Port: **443**, Source: `ssm-instance-sg` (select the security group, not an IP range)
+5. **Outbound rules:** leave default (allow all)
+6. Click **Create security group**
+
+### 8.2 Create the Three Interface Endpoints
+
+Repeat this three times, once per service name.
+
+1. Go to **VPC console** → **Endpoints** → **Create endpoint**
+2. **Name tag:** `vpce-ssm` (then `vpce-ssmmessages`, then `vpce-ec2messages` on the next two runs)
+3. **Service category:** AWS services
+4. **Service name:** search and select:
+   - Run 1: `com.amazonaws.<your-region>.ssm`
+   - Run 2: `com.amazonaws.<your-region>.ssmmessages`
+   - Run 3: `com.amazonaws.<your-region>.ec2messages`
+5. **VPC:** `ssm-lab-vpc`
+6. **Subnets:** select the AZ containing `ssm-private-subnet` (check the box for that AZ)
+7. **Security groups:** uncheck default, check `ssm-endpoint-sg`
+8. **Policy:** Full access (default)
+9. Click **Create endpoint**
+10. Repeat for the remaining two service names
+
+> Wait until all three endpoints show **Status: Available** (takes 1–3 minutes each) before proceeding to Step 4.
+
+### 8.3 Confirm DNS Resolution Is Enabled
+
+1. Select `ssm-lab-vpc` in the VPC console
+2. **Actions** → **Edit VPC settings**
+3. Ensure **Enable DNS resolution** and **Enable DNS hostnames** are both checked
+4. Save if you changed anything
+
+This step matters because the SSM Agent resolves the SSM service hostname, and that hostname must resolve to the **private** endpoint IP (not a public IP) inside the VPC — which only works correctly when DNS resolution is enabled on the VPC.
+
+> **If you're on Scenario A** (your subnet already has a NAT Gateway or IGW route), skip this entire Step 3 — go straight to Step 4.
+
+---
+
+## 9. Step 4: Verify SSM Agent Is Installed & Running
+
+Amazon Linux 2023, Amazon Linux 2, and Ubuntu 20.04+ AMIs from AWS come with the SSM Agent **pre-installed**. You do not need to install it manually on these AMIs. Now that the endpoints exist (or you're on a subnet with NAT/IGW), the agent has a real path to reach SSM — this is the point where it's actually meaningful to check.
+
+### 9.1 Check via Systems Manager Console (Fleet Manager)
 
 1. Go to **Systems Manager console** → left sidebar → **Fleet Manager** (under Node Management)
 2. Look for `ssm-private-instance` in the managed instances list
-3. **Ping status** should show **Online**
+3. **Ping status** should show **Online** (allow 1–2 minutes after endpoints become Available)
 
-> **Expected at this point (if following this guide exactly): the instance will show as offline or won't appear yet.** That is normal here, not a bug — you have not created the VPC Interface Endpoints yet, so the agent has zero path to reach SSM. Continue to **Step 4** below; the instance will flip to **Online** within 1-2 minutes of the endpoints becoming Available. If you're on Scenario A (NAT Gateway already in your subnet) and it's still offline after a few minutes, then treat this as a real issue and check the **Troubleshooting Checklist** section.
+> If it's still not appearing after a few minutes, that's now a real issue, not an expected wait — check the **Troubleshooting Checklist** section.
 
-### 8.2 (If Needed) Manually Verify/Install/Restart the Agent on the Instance Itself
+### 9.2 (If Needed) Manually Verify/Install/Restart the Agent on the Instance Itself
 
 You will only need this section if:
 - You used a custom/older AMI where the agent isn't pre-installed, OR
-- Fleet Manager shows the instance as offline and you need to debug from inside
+- Fleet Manager still shows the instance as offline after the endpoints are Available, and you need to debug from inside
 
-Since the instance has no SSH/public IP, you can only run these commands **after** you already have Session Manager access (chicken-and-egg only applies to brand-new custom AMIs — standard Amazon Linux/Ubuntu AMIs already have it pre-installed and running, so Step 10 below will just work).
+Since the instance has no SSH/public IP, you can only run these commands **after** you already have Session Manager access (chicken-and-egg only applies to brand-new custom AMIs — standard Amazon Linux/Ubuntu AMIs already have it pre-installed and running, so Step 5 below will just work once it's Online).
 
 **Check agent status (Amazon Linux 2023 / Amazon Linux 2 / RHEL):**
 ```bash
@@ -332,59 +392,6 @@ amazon-ssm-agent -version
 ```bash
 sudo tail -f /var/log/amazon/ssm/amazon-ssm-agent.log
 ```
-
----
-
-## 9. Step 4: Set Up VPC Interface Endpoints (Required for Private Subnet — No NAT/IGW)
-
-Since `ssm-private-subnet` has **no route to the internet** (no NAT Gateway, no IGW), the SSM Agent cannot reach the public SSM service endpoints. We fix this using **AWS PrivateLink / VPC Interface Endpoints**, which place SSM's endpoints directly inside your VPC.
-
-**Three endpoints are required together** (all three, not just one):
-
-| Endpoint | Purpose |
-|---|---|
-| `com.amazonaws.<region>.ssm` | Core Systems Manager API calls |
-| `com.amazonaws.<region>.ssmmessages` | Session Manager's actual data channel (the shell traffic) |
-| `com.amazonaws.<region>.ec2messages` | Agent-to-service messaging used by SSM |
-
-### 9.1 Create the Endpoint Security Group
-
-1. Go to **EC2 console** → **Security Groups** → **Create security group**
-2. **Name:** `ssm-endpoint-sg`
-3. **VPC:** `ssm-lab-vpc`
-4. **Inbound rules:**
-   - Type: **HTTPS**, Port: **443**, Source: `ssm-instance-sg` (select the security group, not an IP range)
-5. **Outbound rules:** leave default (allow all)
-6. Click **Create security group**
-
-### 9.2 Create the Three Interface Endpoints
-
-Repeat this three times, once per service name.
-
-1. Go to **VPC console** → **Endpoints** → **Create endpoint**
-2. **Name tag:** `vpce-ssm` (then `vpce-ssmmessages`, then `vpce-ec2messages` on the next two runs)
-3. **Service category:** AWS services
-4. **Service name:** search and select:
-   - Run 1: `com.amazonaws.<your-region>.ssm`
-   - Run 2: `com.amazonaws.<your-region>.ssmmessages`
-   - Run 3: `com.amazonaws.<your-region>.ec2messages`
-5. **VPC:** `ssm-lab-vpc`
-6. **Subnets:** select the AZ containing `ssm-private-subnet` (check the box for that AZ)
-7. **Security groups:** uncheck default, check `ssm-endpoint-sg`
-8. **Policy:** Full access (default)
-9. Click **Create endpoint**
-10. Repeat for the remaining two service names
-
-> Wait until all three endpoints show **Status: Available** (takes 1–3 minutes each) before proceeding.
-
-### 9.3 Confirm DNS Resolution Is Enabled
-
-1. Select `ssm-lab-vpc` in the VPC console
-2. **Actions** → **Edit VPC settings**
-3. Ensure **Enable DNS resolution** and **Enable DNS hostnames** are both checked
-4. Save if you changed anything
-
-This step matters because the SSM Agent resolves the SSM service hostname, and that hostname must resolve to the **private** endpoint IP (not a public IP) inside the VPC — which only works correctly when DNS resolution is enabled on the VPC.
 
 ---
 
