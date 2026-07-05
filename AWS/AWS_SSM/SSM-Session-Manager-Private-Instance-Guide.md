@@ -1,8 +1,5 @@
 # AWS Systems Manager (SSM) Agent Installation & Session Manager — Login to Private EC2 Instance (No SSH, No Bastion, No Public IP)
 
-**Author:** Saime Shaikh
-**Topic:** SSM Agent Installation, Verification & Secure Shell Access to a Private Instance via Session Manager
-**Level:** Hands-on Lab (Console-First)
 
 ---
 
@@ -174,6 +171,24 @@ Your Laptop → AWS Systems Manager Service → Private Instance (SSM Agent, out
 
 ---
 
+## ⚠️ READ THIS BEFORE YOU START — Which Path Are You Doing?
+
+This lab is written for **Scenario B: a fully private subnet with NO NAT Gateway and NO Internet Gateway**. That is the harder, more realistic enterprise pattern, and it is the whole reason **Step 4 (VPC Interface Endpoints) is mandatory, not optional, in this guide.**
+
+Confirm which path applies to you **before you launch the EC2 instance**, because it changes whether Step 4 is required:
+
+| Your Subnet Has... | Path | Do You Need Step 4 (VPC Endpoints)? |
+|---|---|---|
+| A route to an Internet Gateway directly (public subnet) | Scenario A | ❌ No — skip Step 4 entirely |
+| A route to a NAT Gateway (private subnet, but NAT exists) | Scenario A | ❌ No — skip Step 4 entirely |
+| **No NAT Gateway and no IGW route at all** (fully isolated) | **Scenario B (this guide)** | ✅ **Yes — mandatory.** Without it, the SSM Agent has no path to the SSM service, the instance will never show "Online" in Fleet Manager, and Session Manager will never connect. |
+
+**This guide builds Scenario B from scratch**, including creating a subnet with zero NAT/IGW route on purpose, specifically so you get hands-on practice with VPC Interface Endpoints — this is the part most tutorials skip and the part interviewers actually ask about.
+
+If you'd rather do the simpler version first, use a subnet that already has a NAT Gateway, skip Step 4 entirely, and go straight from Step 3 to Step 5.
+
+---
+
 ## 5. Lab Setup — Building the Environment
 
 We will build this from scratch so the "fully private, no internet route" scenario is proven end-to-end:
@@ -268,7 +283,7 @@ Amazon Linux 2023, Amazon Linux 2, and Ubuntu 20.04+ AMIs from AWS come with the
 2. Look for `ssm-private-instance` in the managed instances list
 3. **Ping status** should show **Online**
 
-> If the instance does NOT appear here, or shows **Connection lost**, the SSM Agent isn't communicating — this is the single most common blocker. Causes and fixes are in the **Troubleshooting Checklist** section.
+> **Expected at this point (if following this guide exactly): the instance will show as offline or won't appear yet.** That is normal here, not a bug — you have not created the VPC Interface Endpoints yet, so the agent has zero path to reach SSM. Continue to **Step 4** below; the instance will flip to **Online** within 1-2 minutes of the endpoints becoming Available. If you're on Scenario A (NAT Gateway already in your subnet) and it's still offline after a few minutes, then treat this as a real issue and check the **Troubleshooting Checklist** section.
 
 ### 8.2 (If Needed) Manually Verify/Install/Restart the Agent on the Instance Itself
 
