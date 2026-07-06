@@ -2106,3 +2106,10 @@ For monitoring and deeper troubleshooting, I may use:
 
 ---
 
+## Q148. Two VPCs are connected through VPC Peering and the peering status is Active, but the resources cannot communicate. How would you troubleshoot?
+
+If two VPCs are peered but resources cannot communicate, I would first verify that the peering connection is active and that the VPC CIDR blocks do not overlap. Next, I would check the route tables in both VPCs to ensure they contain routes to the peer VPC and that the correct route tables are associated with the relevant subnets. After that, I would verify Security Group rules and Network ACLs to ensure the required traffic is allowed in both directions. I would confirm that I'm using the private IP address because VPC Peering operates over private networking. Then I'd check whether the application is actually running, listening on the expected port, and not restricted to localhost. If DNS names are being used, I'd verify VPC DNS settings and DNS resolution across the peering connection. Finally, I'd use VPC Flow Logs and Reachability Analyzer to pinpoint where the traffic is being dropped. This systematic approach helps isolate whether the problem is related to routing, security, the operating system, or the application itself.
+
+
+---
+
