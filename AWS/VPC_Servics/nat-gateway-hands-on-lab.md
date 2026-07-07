@@ -328,6 +328,8 @@ From your local machine:
 chmod 400 your-key.pem
 ssh -i your-key.pem ec2-user@<bastion-public-ip>
 ```
+<img width="3311" height="1678" alt="Screenshot 2026-07-07 at 6 05 23 PM" src="https://github.com/user-attachments/assets/0e9e84b5-afa0-4435-bbbe-5484d3d37b5c" />
+
 
 ### Test 3 — Hop from bastion into the private instance
 
@@ -344,6 +346,10 @@ chmod 400 your-key.pem
 ssh -i your-key.pem ec2-user@10.0.2.10
 ```
 
+### ssh in to Private EC2
+<img width="1371" height="792" alt="Screenshot 2026-07-07 at 6 07 40 PM" src="https://github.com/user-attachments/assets/f1e1fb3a-665f-4313-8d5d-ff548d6c4217" />
+
+
 You are now logged into the **private instance**, which has no direct route from the internet.
 
 ### Test 4 — Prove outbound internet access works (via NAT Gateway)
@@ -353,6 +359,8 @@ On the **private instance**:
 ```bash
 curl https://saimeshaikh.in
 ```
+<img width="2166" height="640" alt="image" src="https://github.com/user-attachments/assets/63ea238d-3c2c-4a96-9b3d-125c9377d6e2" />
+
 
 **Expected result:** This returns an IP address — but it will be the **NAT Gateway's Elastic IP** (e.g., `3.110.x.x`), **not** the private instance's own IP (`10.0.2.10`). This is the SNAT translation happening in real time.
 
@@ -380,6 +388,7 @@ ssh -i your-key.pem ec2-user@10.0.2.10
 2. **Monitoring** tab → observe `BytesOutToDestination` / `BytesOutToSource` / `ActiveConnectionCount` ticking up right after you ran the `curl` and `ping` commands.
 
 <img width="2789" height="1623" alt="image" src="https://github.com/user-attachments/assets/7780a262-6410-45ad-a0b3-b4690dfb740d" />
+
 
 ---
 
@@ -514,4 +523,4 @@ Cleanup ord = EC2 -> NAT GW -> EIP -> Route Tables -> IGW -> Subnets -> SGs -> V
 
 ---
 
-*End of guide. Next logical labs to pair with this: VPC Gateway Endpoints (S3/DynamoDB) to see the cost-saving alternative in action, and multi-AZ NAT Gateway HA setup.*
+
