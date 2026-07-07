@@ -2113,3 +2113,40 @@ If two VPCs are peered but resources cannot communicate, I would first verify th
 
 ---
 
+## Q149. Where is the NAT Gateway entry configured?
+
+The route to the NAT Gateway is configured in the private subnet's route table, where the default route (0.0.0.0/0) points to the NAT Gateway. The NAT Gateway itself does not have a route table. The subnet containing the NAT Gateway must have its own route table with a default route to the Internet Gateway. Internally, the NAT Gateway maintains translation mappings for active connections, but those mappings are managed by AWS and are not user-configurable.
+
+Easy way to remember
+- Private Route Table → 0.0.0.0/0 → NAT Gateway
+- Public Route Table → 0.0.0.0/0 → Internet Gateway
+- NAT Gateway → Performs NAT (translation), not routing.
+
+
+---
+
+
+## Q150. Does the NAT Gateway maintain a NAT table?
+
+Yes, internally.
+
+Like any NAT device, the NAT Gateway keeps an internal translation table to map outbound connections from private IP addresses to its Elastic IP so that return traffic goes back to the correct instance.
+
+This table is managed automatically by AWS. You cannot view or configure it.
+
+---
+
+## 151. Does the NAT Gateway have a Route Table?
+
+No.
+
+A NAT Gateway:
+
+Does not have its own route table.
+Does not have configurable routing entries.
+Receives traffic because the private subnet's route table sends traffic to it.
+
+
+---
+
+
