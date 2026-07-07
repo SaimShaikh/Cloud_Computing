@@ -94,50 +94,9 @@ This is **Source NAT (SNAT)** for outbound-only, stateful, managed at the AWS hy
 
 ### Target lab architecture — single AZ, one public + one private subnet
 
-```
-                                   ┌─────────────────────────────┐
-                                   │           Internet           │
-                                   └───────────────┬───────────────┘
-                                                   │
-                                          ┌─────────▼─────────┐
-                                          │ Internet Gateway  │
-                                          │  (igw-natlab)     │
-                                          └─────────┬─────────┘
-                                                   │
-   VPC: 10.0.0.0/16  (nat-lab-vpc)                │
-  ┌────────────────────────────────────────────────┼─────────────────────────────────┐
-  │                                                 │                                 │
-  │   PUBLIC SUBNET (10.0.1.0/24) — AZ: ap-south-1a │                                 │
-  │  ┌──────────────────────────────────────────────▼───────────────────────────┐    │
-  │  │  Route Table: public-rt                                                  │    │
-  │  │   10.0.0.0/16 -> local                                                   │    │
-  │  │   0.0.0.0/0   -> igw-natlab                                              │    │
-  │  │                                                                          │    │
-  │  │   ┌───────────────────────┐                                             │    │
-  │  │   │   NAT Gateway         │                                             │    │
-  │  │   │   (nat-gw-natlab)     │◄── Elastic IP attached (e.g. 3.110.x.x)      │    │
-  │  │   └───────────┬───────────┘                                             │    │
-  │  └───────────────┼──────────────────────────────────────────────────────────┘    │
-  │                  │                                                               │
-  │   PRIVATE SUBNET (10.0.2.0/24) — AZ: ap-south-1a                                 │
-  │  ┌───────────────▼──────────────────────────────────────────────────────────┐    │
-  │  │  Route Table: private-rt                                                │    │
-  │  │   10.0.0.0/16 -> local                                                   │    │
-  │  │   0.0.0.0/0   -> nat-gw-natlab                                           │    │
-  │  │                                                                          │    │
-  │  │   ┌───────────────────────┐                                             │    │
-  │  │   │  EC2: private-instance│  (no public IP)                             │    │
-  │  │   │  10.0.2.10            │                                             │    │
-  │  │   └───────────────────────┘                                             │    │
-  │  └──────────────────────────────────────────────────────────────────────────┘    │
-  │                                                                                   │
-  │   ┌───────────────────────┐                                                       │
-  │   │  EC2: bastion-host    │  (public IP, used only to SSH into private instance)  │
-  │   │  in public subnet     │                                                       │
-  │   └───────────────────────┘                                                       │
-  └───────────────────────────────────────────────────────────────────────────────────┘
-```
+<img width="1440" height="1360" alt="image" src="https://github.com/user-attachments/assets/55616f3e-09a6-4aca-9149-571486df6d03" />
 
+                                  
 ### Packet flow for `curl https://checkip.amazonaws.com` from the private instance
 
 ```
