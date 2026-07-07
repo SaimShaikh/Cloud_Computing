@@ -94,7 +94,8 @@ This is **Source NAT (SNAT)** for outbound-only, stateful, managed at the AWS hy
 
 ### Target lab architecture — single AZ, one public + one private subnet
 
-<img width="1440" height="1360" alt="image" src="https://github.com/user-attachments/assets/55616f3e-09a6-4aca-9149-571486df6d03" />
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/5ef7d431-7ad1-40e0-bd4e-4cc9465cc4c9" />
+
 
                                   
 ### Packet flow for `curl https://checkip.amazonaws.com` from the private instance
@@ -198,7 +199,16 @@ By the end of this lab you will have:
 3. Click **Create internet gateway**.
 4. Select it → **Actions** → **Attach to VPC** → choose `nat-lab-vpc` → **Attach internet gateway**.
 
-### Step 6 — Create the Public Route Table
+### Step 6 — Allocate an Elastic IP (for the NAT Gateway)
+
+1. Go to **Elastic IPs** → **Allocate Elastic IP address**.
+2. Network Border Group: leave default.
+3. Click **Allocate**.
+4. (Optional) Rename tag to `eip-natgw`.
+
+> You must do this **before or during** NAT Gateway creation — a NAT Gateway cannot exist without an Elastic IP attached.
+
+### Step 7 — Create the Public Route Table
 
 1. Go to **Route Tables** → **Create route table**.
 2. Name: `public-rt`.
@@ -210,14 +220,10 @@ By the end of this lab you will have:
 6. Save routes.
 7. Go to **Subnet associations** tab → **Edit subnet associations** → check `public-subnet-1a` → **Save associations**.
 
-### Step 7 — Allocate an Elastic IP (for the NAT Gateway)
+<img width="2813" height="867" alt="image" src="https://github.com/user-attachments/assets/4a1d4e84-ca0d-462e-bb95-8c591cdcf2a6" />
 
-1. Go to **Elastic IPs** → **Allocate Elastic IP address**.
-2. Network Border Group: leave default.
-3. Click **Allocate**.
-4. (Optional) Rename tag to `eip-natgw`.
+<img width="2805" height="841" alt="image" src="https://github.com/user-attachments/assets/8c7e9e66-a1f6-43ac-98a3-378f56ee2eaf" />
 
-> You must do this **before or during** NAT Gateway creation — a NAT Gateway cannot exist without an Elastic IP attached.
 
 ### Step 8 — Create the NAT Gateway
 
@@ -229,6 +235,8 @@ By the end of this lab you will have:
    - **Elastic IP allocation ID**: select the EIP you allocated in Step 7 (`eip-natgw`)
 3. Click **Create NAT gateway**.
 4. Wait for **State** to change from `Pending` → `Available` (usually takes 1–3 minutes).
+
+<img width="1408" height="316" alt="Screenshot 2026-07-07 at 5 51 23 PM" src="https://github.com/user-attachments/assets/852dbd80-ae75-471a-ad25-9363dbaf9853" />
 
 ### Step 9 — Create the Private Route Table
 
@@ -242,6 +250,11 @@ By the end of this lab you will have:
 6. Save routes.
 7. Go to **Subnet associations** tab → **Edit subnet associations** → check `private-subnet-1a` → **Save associations**.
 
+<img width="2810" height="1007" alt="image" src="https://github.com/user-attachments/assets/0aabadf4-6ea5-4a84-8bb0-6f521146a63d" />
+
+<img width="2793" height="894" alt="image" src="https://github.com/user-attachments/assets/a672b8ae-dca9-4e7e-b828-157ee76308ce" />
+
+
 > **Common mistake to avoid**: If you accidentally point `private-rt`'s `0.0.0.0/0` route to the Internet Gateway instead of the NAT Gateway, your "private" instance would need a public IP to get internet access, defeating the entire purpose of this lab. Double-check the target says **NAT Gateway**, not **Internet Gateway**.
 
 ### Step 10 — Create a Security Group for the Bastion Host
@@ -254,6 +267,8 @@ By the end of this lab you will have:
 5. Outbound rules: leave default (all traffic allowed).
 6. Create security group.
 
+<img width="2811" height="1191" alt="Screenshot 2026-07-07 at 5 55 08 PM" src="https://github.com/user-attachments/assets/e86c93b9-0ce9-4b20-997b-cbae1b696242" />
+
 ### Step 11 — Create a Security Group for the Private Instance
 
 1. Go to **Security Groups** → **Create security group**.
@@ -263,6 +278,9 @@ By the end of this lab you will have:
    - Type: SSH, Port 22, Source: **Custom** → select `bastion-sg` (so only the bastion can SSH in, nothing from the open internet)
 5. Outbound rules: leave default (all traffic allowed — needed for the NAT Gateway test).
 6. Create security group.
+
+<img width="3276" height="774" alt="image" src="https://github.com/user-attachments/assets/683e1937-51b3-4474-b788-3825aeb067c3" />
+
 
 ### Step 12 — Launch the Bastion Host (Public Subnet)
 
@@ -333,7 +351,7 @@ You are now logged into the **private instance**, which has no direct route from
 On the **private instance**:
 
 ```bash
-curl https://checkip.amazonaws.com
+curl https://saimeshaikh.in
 ```
 
 **Expected result:** This returns an IP address — but it will be the **NAT Gateway's Elastic IP** (e.g., `3.110.x.x`), **not** the private instance's own IP (`10.0.2.10`). This is the SNAT translation happening in real time.
@@ -342,7 +360,7 @@ Also try:
 
 ```bash
 ping -c 4 8.8.8.8
-sudo dnf update -y
+sudo apt-get update -y
 ```
 
 Both should succeed — proving outbound internet access works even though the instance has no public IP.
@@ -361,197 +379,12 @@ ssh -i your-key.pem ec2-user@10.0.2.10
 1. Go to **VPC console** → **NAT Gateways** → select `nat-gw-natlab`.
 2. **Monitoring** tab → observe `BytesOutToDestination` / `BytesOutToSource` / `ActiveConnectionCount` ticking up right after you ran the `curl` and `ping` commands.
 
----
-
-## 8. AWS CLI Reference (Equivalent Commands)
-
-> These are provided as a reference for what the console actions above map to — useful for automation, interviews, or scripting later. The hands-on lab itself is done purely via console as shown above.
-
-```bash
-# Create VPC
-aws ec2 create-vpc --cidr-block 10.0.0.0/16 \
-  --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=nat-lab-vpc}]'
-
-# Create public subnet
-aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.1.0/24 \
-  --availability-zone ap-south-1a \
-  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=public-subnet-1a}]'
-
-# Create private subnet
-aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.2.0/24 \
-  --availability-zone ap-south-1a \
-  --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=private-subnet-1a}]'
-
-# Enable auto-assign public IP on public subnet
-aws ec2 modify-subnet-attribute --subnet-id <public-subnet-id> \
-  --map-public-ip-on-launch
-
-# Create and attach Internet Gateway
-aws ec2 create-internet-gateway \
-  --tag-specifications 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=igw-natlab}]'
-aws ec2 attach-internet-gateway --vpc-id <vpc-id> --internet-gateway-id <igw-id>
-
-# Allocate Elastic IP
-aws ec2 allocate-address --domain vpc
-
-# Create NAT Gateway
-aws ec2 create-nat-gateway --subnet-id <public-subnet-id> \
-  --allocation-id <eip-allocation-id> \
-  --tag-specifications 'ResourceType=natgateway,Tags=[{Key=Name,Value=nat-gw-natlab}]'
-
-# Create public route table + route + association
-aws ec2 create-route-table --vpc-id <vpc-id> \
-  --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=public-rt}]'
-aws ec2 create-route --route-table-id <public-rt-id> \
-  --destination-cidr-block 0.0.0.0/0 --gateway-id <igw-id>
-aws ec2 associate-route-table --route-table-id <public-rt-id> --subnet-id <public-subnet-id>
-
-# Create private route table + route + association
-aws ec2 create-route-table --vpc-id <vpc-id> \
-  --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=private-rt}]'
-aws ec2 create-route --route-table-id <private-rt-id> \
-  --destination-cidr-block 0.0.0.0/0 --nat-gateway-id <nat-gw-id>
-aws ec2 associate-route-table --route-table-id <private-rt-id> --subnet-id <private-subnet-id>
-
-# Describe NAT Gateway status
-aws ec2 describe-nat-gateways --filter "Name=tag:Name,Values=nat-gw-natlab"
-
-# Delete NAT Gateway (cleanup)
-aws ec2 delete-nat-gateway --nat-gateway-id <nat-gw-id>
-
-# Release Elastic IP (cleanup, after NAT GW is deleted)
-aws ec2 release-address --allocation-id <eip-allocation-id>
-```
+<img width="2789" height="1623" alt="image" src="https://github.com/user-attachments/assets/7780a262-6410-45ad-a0b3-b4690dfb740d" />
 
 ---
 
-## 9. Terraform Code
 
-```hcl
-provider "aws" {
-  region = "ap-south-1"
-}
 
-# VPC
-resource "aws_vpc" "nat_lab_vpc" {
-  cidr_block = "10.0.0.0/16"
-  tags = { Name = "nat-lab-vpc" }
-}
-
-# Public Subnet
-resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.nat_lab_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "ap-south-1a"
-  map_public_ip_on_launch = true
-  tags = { Name = "public-subnet-1a" }
-}
-
-# Private Subnet
-resource "aws_subnet" "private_subnet" {
-  vpc_id            = aws_vpc.nat_lab_vpc.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "ap-south-1a"
-  tags = { Name = "private-subnet-1a" }
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.nat_lab_vpc.id
-  tags = { Name = "igw-natlab" }
-}
-
-# Elastic IP for NAT Gateway
-resource "aws_eip" "nat_eip" {
-  domain = "vpc"
-  tags = { Name = "eip-natgw" }
-}
-
-# NAT Gateway
-resource "aws_nat_gateway" "nat_gw" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.public_subnet.id
-  tags = { Name = "nat-gw-natlab" }
-
-  depends_on = [aws_internet_gateway.igw]
-}
-
-# Public Route Table
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.nat_lab_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = { Name = "public-rt" }
-}
-
-resource "aws_route_table_association" "public_assoc" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-# Private Route Table
-resource "aws_route_table" "private_rt" {
-  vpc_id = aws_vpc.nat_lab_vpc.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat_gw.id
-  }
-
-  tags = { Name = "private-rt" }
-}
-
-resource "aws_route_table_association" "private_assoc" {
-  subnet_id      = aws_subnet.private_subnet.id
-  route_table_id = aws_route_table.private_rt.id
-}
-
-# Security Group - Bastion
-resource "aws_security_group" "bastion_sg" {
-  name   = "bastion-sg"
-  vpc_id = aws_vpc.nat_lab_vpc.id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["YOUR_IP/32"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# Security Group - Private instance
-resource "aws_security_group" "private_sg" {
-  name   = "private-sg"
-  vpc_id = aws_vpc.nat_lab_vpc.id
-
-  ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion_sg.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-```
-
----
 
 ## 10. Edge Cases & Failure Scenarios
 
