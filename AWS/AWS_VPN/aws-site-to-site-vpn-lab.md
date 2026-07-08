@@ -27,7 +27,23 @@ Unlike Direct Connect (a private, dedicated physical circuit), a Site-to-Site VP
 
 Each AWS VPN Connection gives you **two tunnels** (Tunnel1 and Tunnel2) terminating on two different AWS public IPs, for redundancy — if one AWS endpoint has maintenance or an outage, the second tunnel keeps traffic flowing.
 
-### 2.2 Why use Site-to-Site VPN?
+### 2.2 Core Components
+
+| Component | What it is | Where it lives in this lab |
+|---|---|---|
+| **Customer Gateway (CGW)** | A logical AWS resource — just metadata (public IP + BGP ASN) describing your on-prem/branch VPN device. It is NOT the device itself. | Created in Mumbai, pointing at the Singapore EC2's Elastic IP |
+| **VPN appliance / "customer gateway device"** | The actual physical or software device that terminates the tunnel on the non-AWS side. | The Singapore EC2 instance running Openswan |
+| **Virtual Private Gateway (VGW)** | The AWS-managed, redundant VPN concentrator attached to one VPC. Terminates the AWS side of the tunnel. | Created and attached to `mumbai-cloud-vpc` |
+| **Transit Gateway (TGW)** *(not used in this lab)* | An alternative to a VGW — a regional router that can terminate many VPN connections, VPCs, and Direct Connect links, and supports ECMP across tunnels for higher throughput. Worth knowing for interviews even though this lab uses a plain VGW. | Not used here |
+| **VPN Connection** | The AWS resource tying a Customer Gateway to a VGW/TGW. Creating it generates two tunnels automatically. | `mumbai-singapore-vpn` |
+| **Tunnel** | A single IPSec tunnel instance (AWS always gives you 2 per VPN Connection) with its own public IP, PSK, and inside CIDR (a /30 used for tunnel-interface addressing, mainly relevant for BGP). | Only Tunnel1 configured; Tunnel2 intentionally left DOWN |
+| **Tunnel Options** | Per-tunnel settings you can customize at creation: Pre-Shared Key (auto-generated or custom), inside IPv4 CIDR, IKE version (IKEv1/IKEv2), DPD timeout behavior, and phase 1/2 encryption/integrity algorithms. | Defaults used in Step B8; extracted from the downloaded config |
+| **Routing option: Static** | You manually declare the CIDR(s) reachable behind the Customer Gateway. Simple, but must be updated by hand if CIDRs change. | Used in this lab (`10.20.0.0/16`) |
+| **Routing option: BGP (Dynamic)** | The CGW device and VGW exchange routes automatically over the tunnel via BGP. More resilient, but requires a BGP-capable device and an ASN. | Not used in this lab |
+| **VPN CloudHub** | A design pattern (not a distinct resource) where multiple Customer Gateways connect to a single VGW, letting on-prem sites communicate with each other via AWS as a hub — useful for connecting multiple branch offices. | Not used in this lab, but common interview topic |
+| **Accelerated Site-to-Site VPN** | An option that routes tunnel traffic through the nearest AWS Global Accelerator edge location for improved and more consistent performance; requires attaching to a Transit Gateway, not a VGW. | Not used in this lab |
+
+### 2.3 Why use Site-to-Site VPN?
 
 - Extend your on-prem network into a VPC (hybrid cloud) without needing a physical leased line.
 - Fast to provision (minutes) compared to Direct Connect (weeks/months of lead time).
@@ -35,7 +51,7 @@ Each AWS VPN Connection gives you **two tunnels** (Tunnel1 and Tunnel2) terminat
 - Enables **lift-and-shift** migrations where some servers stay on-prem and some move to AWS but must talk to each other privately.
 - Useful for **multi-site connectivity** when combined with Transit Gateway (hub-and-spoke).
 
-### 2.3 Benefits
+### 2.4 Benefits
 
 | Benefit | Detail |
 |---|---|
@@ -46,7 +62,7 @@ Each AWS VPN Connection gives you **two tunnels** (Tunnel1 and Tunnel2) terminat
 | Pay-as-you-go | No upfront cost, hourly + data transfer pricing |
 | Works with Transit Gateway | Can fan out to many VPCs/on-prem sites from one connection |
 
-### 2.4 Limitations
+### 2.5 Limitations
 
 - **Throughput ceiling**: each tunnel is capped around **1.25 Gbps**. To scale beyond that you need multiple tunnels with ECMP (only possible via Transit Gateway, not a lone VGW) or Direct Connect.
 - **Internet-dependent latency/jitter**: since it rides the public internet, performance is not as predictable as Direct Connect.
@@ -54,7 +70,7 @@ Each AWS VPN Connection gives you **two tunnels** (Tunnel1 and Tunnel2) terminat
 - Requires a **static public IP** on the customer-gateway side; no support for dynamic IPs unless behind additional NAT/DDNS tricks.
 - BGP (dynamic routing) adds complexity; static routing (used in this lab) means routes must be manually maintained if CIDRs change.
 
-### 2.5 Cost
+### 2.6 Cost
 
 - **VPN Connection hourly charge**: billed per hour the VPN connection exists (~$0.05/hr in most regions, check current [AWS VPC pricing page](https://aws.amazon.com/vpn/pricing/) for exact ap-south-1/ap-southeast-1 rates).
 - **Data transfer OUT** from AWS to internet is billed at standard EC2 data transfer rates (data flowing through the tunnel is "data out" from AWS's perspective).
@@ -62,7 +78,7 @@ Each AWS VPN Connection gives you **two tunnels** (Tunnel1 and Tunnel2) terminat
 - No extra charge for VGW or CGW objects themselves — you only pay for the VPN Connection resource and underlying EC2/data transfer.
 - **Remember to delete the VPN Connection + terminate EC2 instances after the lab** — hourly VPN charges continue to accrue as long as the resource exists, even if the tunnel is DOWN.
 
-### 2.6 Edge Cases
+### 2.7 Edge Cases
 
 - If the Singapore EC2 instance is stopped/started (not just rebooted), its **public IP changes** (unless you assigned an Elastic IP) — this breaks the Customer Gateway registration since AWS expects a static IP. **Always use an Elastic IP** for the CGW-side instance.
 - **Source/Destination Check** must be **disabled** on the Singapore EC2 instance's ENI — by default, AWS drops traffic where the EC2 is not the actual source/destination of the packet. Since this instance is acting as a router/gateway (encapsulating/decapsulating other traffic), this check must be turned off.
@@ -71,7 +87,7 @@ Each AWS VPN Connection gives you **two tunnels** (Tunnel1 and Tunnel2) terminat
 - Route propagation must be **explicitly enabled** on the Mumbai route table — a very common miss that leaves the VPN "UP" in console but unreachable in practice.
 - `openswan` is only available on **Amazon Linux 2** (RHEL/CentOS 7-era package). Amazon Linux 2023 replaced it with **Libreswan** — if you launch an AL2023 instance the `yum install openswan` command in this lab will fail. Use **Amazon Linux 2 AMI** for the Singapore instance to match the commands given.
 
-### 2.7 Assumptions
+### 2.8 Assumptions
 
 - You have an AWS account with permissions to create VPCs, EC2, VPN Gateways in both `ap-south-1` (Mumbai) and `ap-southeast-1` (Singapore).
 - You are comfortable with basic Linux terminal usage (`vi`/`nano`, `sudo`).
@@ -86,35 +102,8 @@ Each AWS VPN Connection gives you **two tunnels** (Tunnel1 and Tunnel2) terminat
 
 ## 3. Architecture Diagram
 
-```
-                              PUBLIC INTERNET
-                     ┌───────────────────────────────┐
-                     │                                │
-        ┌────────────┴───────────┐        ┌───────────┴────────────┐
-        │   MUMBAI (ap-south-1)  │        │ SINGAPORE (ap-southeast-1)│
-        │   "AWS Cloud Side"     │        │   "On-Prem Simulator"    │
-        │                        │        │                          │
-        │  VPC 10.10.0.0/16      │        │  VPC 10.20.0.0/16        │
-        │  Subnet 10.10.1.0/24   │        │  Subnet 10.20.1.0/24     │
-        │                        │        │                          │
-        │  ┌──────────────────┐  │        │  ┌────────────────────┐  │
-        │  │  EC2 (private)   │  │        │  │  EC2 + Elastic IP  │  │
-        │  │  10.10.1.x       │  │        │  │  10.20.1.x         │  │
-        │  │  "cloud workload"│  │        │  │  runs Openswan     │  │
-        │  └────────┬─────────┘  │        │  │  = Customer Gateway│  │
-        │           │            │        │  └─────────┬──────────┘  │
-        │     Route Table        │        │             │             │
-        │     (VGW propagation)  │        │        Route Table        │
-        │           │            │        │             │             │
-        │  ┌────────┴─────────┐  │        │      Internet Gateway     │
-        │  │ Virtual Private  │◄─┼── IPSec Tunnel 1 & 2 ──┤            │
-        │  │ Gateway (VGW)    │  │  (encrypted, over internet)          │
-        │  └────────┬─────────┘  │        └──────────────────────────┘
-        │           │            │
-        │   VPN Connection       │
-        │   Customer Gateway◄────┼─── registered with Singapore EIP
-        └────────────────────────┘
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/bb1e8a69-15d6-4170-879f-986bed04c99c" />
+
 
 ---
 
@@ -179,7 +168,7 @@ We build Singapore first because Mumbai's Customer Gateway object needs Singapor
    - Custom UDP — Port 500 — Source: 0.0.0.0/0 *(IKE)*
    - Custom UDP — Port 4500 — Source: 0.0.0.0/0 *(NAT-Traversal)*
    - Custom protocol — ESP (protocol 50) — Source: 0.0.0.0/0
-   - ICMP — All — Source: 10.10.0.0/16 *(so you can ping Mumbai)*
+   - ICMP — All — Source: 10.10.0.0/16 *(so you can ping Mumbai — "All" covers both Echo Request and Echo Reply; ICMP is its own IP protocol, not TCP or UDP, so it needs its own rule)*
 5. Outbound: leave default (all allowed).
 6. Create security group.
 
@@ -252,7 +241,7 @@ We build Singapore first because Mumbai's Customer Gateway object needs Singapor
 2. Name: `mumbai-vpn-sg`
 3. VPC: `mumbai-cloud-vpc`
 4. Inbound rules:
-   - ICMP — All — Source: `10.20.0.0/16` *(so Singapore can ping this instance)*
+   - ICMP — All — Source: `10.20.0.0/16` *(so Singapore can ping this instance — covers both Echo Request and Echo Reply; ICMP is its own protocol, separate from TCP/UDP)*
    - SSH (22) — Source: `10.20.0.0/16` *(optional, to SSH via the tunnel once it's up)*
 5. Create.
 
@@ -270,7 +259,7 @@ We build Singapore first because Mumbai's Customer Gateway object needs Singapor
    - Security group: `mumbai-vpn-sg`
 7. Launch.
 
-> Since this instance has no public IP, you will only be able to SSH into it later **through the tunnel from the Singapore instance**, or via **EC2 Instance Connect Endpoint / SSM Session Manager** if you want out-of-band access for troubleshooting. For this lab, connectivity is proven with `ping` from the Singapore side once the tunnel is up.
+> Since this instance has no public IP, it is **only reachable from the Singapore instance** (the VPN's other end) once the tunnel is up — SSH/ping must originate FROM the Singapore side TO this instance's private IP. You cannot SSH into it directly from your laptop; the VPN does not expose it to the public internet. If you want laptop-based out-of-band access for troubleshooting, use EC2 Instance Connect Endpoint or SSM Session Manager separately.
 
 ### Step B6 — Create Customer Gateway (Mumbai)
 
@@ -335,7 +324,7 @@ sudo su -
 yum install openswan -y
 ```
 
-> Only works on **Amazon Linux 2**. If this fails with "no package openswan available," you launched AL2023 by mistake — relaunch with the AL2 AMI (see Edge Cases §2.6).
+> Only works on **Amazon Linux 2**. If this fails with "no package openswan available," you launched AL2023 by mistake — relaunch with the AL2 AMI (see Edge Cases §2.7).
 
 ### Step C3 — Uncomment the include line in ipsec.conf
 
@@ -369,7 +358,19 @@ Apply immediately **without restarting the network service** (restarting the net
 sysctl -p
 ```
 
+Verify it actually applied:
+
+```bash
+sysctl net.ipv4.ip_forward
+# or
+cat /proc/sys/net/ipv4/ip_forward
+```
+
+Both should return `1`.
+
 > **Sequencing correction from your original steps:** `service network restart` is unreliable on EC2 (can hang or drop your active SSH session) and is not needed — `sysctl -p` achieves the same effect safely.
+
+> **Optional hardening note:** some guides also disable reverse-path filtering (`net.ipv4.conf.all.rp_filter=0`, `net.ipv4.conf.default.rp_filter=0`) on the customer-gateway instance. In this lab's single-EC2 design the instance is the actual traffic endpoint (not forwarding other hosts' packets through itself), so strict RPF is unlikely to interfere — but if you extend this lab so the Singapore EC2 routes traffic for other instances behind it, add these two lines as well.
 
 ### Step C5 — Create the tunnel config file
 
@@ -405,6 +406,8 @@ conn Tunnel1
 - `leftsubnet` = Singapore VPC CIDR (the "on-prem LAN")
 - `rightsubnet` = Mumbai VPC CIDR (the "AWS LAN")
 
+> **Common mistake:** `leftsubnet`/`rightsubnet` here must **exactly match** the CIDRs you declared as the VPN Connection's static route in Step B8 (`10.20.0.0/16`) and the Mumbai VPC CIDR (`10.10.0.0/16`). If you swap them, or use a narrower/wider range than AWS expects, the IKE Phase 2 (Quick Mode) negotiation will fail with a "no proposal chosen" or subnet-mismatch error even though Phase 1 (the initial key exchange) succeeds.
+
 ### Step C6 — Create the secrets file
 
 ```bash
@@ -435,16 +438,40 @@ service ipsec status
 
 ```bash
 ipsec auto --status
+ipsec verify
+ipsec whack --status
 ```
 
-Look for `Tunnel1` listed as `erouted`/`up` (IPsec SA established). Also check from the **AWS console**:
+Look for `Tunnel1` listed as `erouted`/`up` (IPsec SA established). `ipsec verify` sanity-checks your config/kernel support; `ipsec whack --status` shows live SA state, which is often more current than `auto --status` while debugging.
+
+Also check from the **AWS console**:
 
 1. **VPC console → Site-to-Site VPN Connections → mumbai-singapore-vpn → Tunnel Details tab**.
 2. Tunnel 1 status should flip from `DOWN` to **`UP`** within a minute of the tunnel negotiating.
 
+> **Expected, not a bug:** Tunnel 2 will remain `DOWN` for the whole lab — you only configured `Tunnel1` in Openswan. This is normal; AWS always provisions both tunnels for redundancy, but a tunnel only comes up once a device actually terminates it. Configuring Tunnel2 as well (using the second IP/PSK pair from the same downloaded file) is a good extra-credit exercise for practicing HA failover.
+
 ---
 
 ## 8. Verification / Testing
+
+**Final route table state to expect:**
+
+Mumbai (`mumbai-vpn-rt`), after route propagation is enabled and the VPN connection is up:
+
+| Destination | Target |
+|---|---|
+| `10.10.0.0/16` | local |
+| `10.20.0.0/16` | `vgw-xxxxxxxx` (propagated) |
+
+Singapore (`singapore-public-rt`) — **no additional route is needed here.** The only entries are:
+
+| Destination | Target |
+|---|---|
+| `10.20.0.0/16` | local |
+| `0.0.0.0/0` | `igw-xxxxxxxx` |
+
+This looks incomplete at first glance (there's no explicit route to `10.10.0.0/16`), but it's correct for this lab's design: the Singapore EC2 is itself the IPsec endpoint, not a router forwarding other hosts' traffic. Outbound packets to `10.10.1.x` match the existing `0.0.0.0/0` default route for their physical egress path; Openswan's IPsec policy (matched by `leftsubnet`/`rightsubnet` in `aws-vpn.conf`) is what intercepts and encrypts them before they leave the instance — that interception happens independent of the AWS VPC route table. You would only need an extra route pointing at this instance's ENI if other instances *behind* it (in a different Singapore subnet) also needed to reach Mumbai through it.
 
 1. From the **Singapore instance**, ping the Mumbai private IP:
    ```bash
@@ -461,225 +488,8 @@ Look for `Tunnel1` listed as `erouted`/`up` (IPsec SA established). Also check f
 
 ---
 
-## 9. CLI Reference (for later Infrastructure-as-Code practice — not used in the console lab above)
 
-```bash
-# Mumbai VPC
-aws ec2 create-vpc --cidr-block 10.10.0.0/16 --region ap-south-1
-
-# Singapore VPC
-aws ec2 create-vpc --cidr-block 10.20.0.0/16 --region ap-southeast-1
-
-# Customer Gateway (Mumbai region, pointing at Singapore EIP)
-aws ec2 create-customer-gateway \
-  --type ipsec.1 \
-  --public-ip <SINGAPORE_EIP> \
-  --bgp-asn 65000 \
-  --region ap-south-1
-
-# Virtual Private Gateway (Mumbai)
-aws ec2 create-vpn-gateway --type ipsec.1 --region ap-south-1
-aws ec2 attach-vpn-gateway --vpn-gateway-id vgw-xxxx --vpc-id vpc-xxxx --region ap-south-1
-
-# VPN Connection (static routing)
-aws ec2 create-vpn-connection \
-  --type ipsec.1 \
-  --customer-gateway-id cgw-xxxx \
-  --vpn-gateway-id vgw-xxxx \
-  --options StaticRoutesOnly=true \
-  --region ap-south-1
-
-# Add static route for Singapore CIDR
-aws ec2 create-vpn-connection-route \
-  --vpn-connection-id vpn-xxxx \
-  --destination-cidr-block 10.20.0.0/16 \
-  --region ap-south-1
-
-# Enable route propagation on Mumbai route table
-aws ec2 enable-vgw-route-propagation \
-  --route-table-id rtb-xxxx \
-  --gateway-id vgw-xxxx \
-  --region ap-south-1
-
-# Disable source/dest check on Singapore instance
-aws ec2 modify-instance-attribute \
-  --instance-id i-xxxx \
-  --no-source-dest-check \
-  --region ap-southeast-1
-
-# Check tunnel status
-aws ec2 describe-vpn-connections --vpn-connection-ids vpn-xxxx --region ap-south-1
-```
-
----
-
-## 10. Terraform Reference
-
-```hcl
-provider "aws" {
-  alias  = "mumbai"
-  region = "ap-south-1"
-}
-
-provider "aws" {
-  alias  = "singapore"
-  region = "ap-southeast-1"
-}
-
-# --- Singapore: on-prem simulator ---
-resource "aws_vpc" "singapore" {
-  provider   = aws.singapore
-  cidr_block = "10.20.0.0/16"
-  tags       = { Name = "singapore-onprem-vpc" }
-}
-
-resource "aws_subnet" "singapore_public" {
-  provider                = aws.singapore
-  vpc_id                  = aws_vpc.singapore.id
-  cidr_block              = "10.20.1.0/24"
-  availability_zone       = "ap-southeast-1a"
-  map_public_ip_on_launch = true
-  tags                    = { Name = "singapore-public-subnet" }
-}
-
-resource "aws_internet_gateway" "singapore" {
-  provider = aws.singapore
-  vpc_id   = aws_vpc.singapore.id
-  tags     = { Name = "singapore-igw" }
-}
-
-resource "aws_route_table" "singapore" {
-  provider = aws.singapore
-  vpc_id   = aws_vpc.singapore.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.singapore.id
-  }
-  tags = { Name = "singapore-public-rt" }
-}
-
-resource "aws_route_table_association" "singapore" {
-  provider       = aws.singapore
-  subnet_id      = aws_subnet.singapore_public.id
-  route_table_id = aws_route_table.singapore.id
-}
-
-resource "aws_security_group" "singapore_vpn" {
-  provider = aws.singapore
-  vpc_id   = aws_vpc.singapore.id
-  name     = "singapore-vpn-sg"
-
-  ingress { from_port = 22   to_port = 22   protocol = "tcp" cidr_blocks = ["0.0.0.0/0"] }
-  ingress { from_port = 500  to_port = 500  protocol = "udp" cidr_blocks = ["0.0.0.0/0"] }
-  ingress { from_port = 4500 to_port = 4500 protocol = "udp" cidr_blocks = ["0.0.0.0/0"] }
-  ingress { from_port = 0    to_port = 0    protocol = "50"  cidr_blocks = ["0.0.0.0/0"] } # ESP
-  ingress { from_port = -1   to_port = -1   protocol = "icmp" cidr_blocks = ["10.10.0.0/16"] }
-  egress  { from_port = 0    to_port = 0    protocol = "-1"  cidr_blocks = ["0.0.0.0/0"] }
-}
-
-resource "aws_instance" "singapore_gateway" {
-  provider                   = aws.singapore
-  ami                        = "ami-0xxxxxxxxxxxxxxxx" # Amazon Linux 2 AMI in ap-southeast-1
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.singapore_public.id
-  vpc_security_group_ids      = [aws_security_group.singapore_vpn.id]
-  source_dest_check           = false
-  tags                        = { Name = "singapore-onprem-gateway" }
-}
-
-resource "aws_eip" "singapore" {
-  provider = aws.singapore
-  instance = aws_instance.singapore_gateway.id
-  domain   = "vpc"
-}
-
-# --- Mumbai: AWS cloud side ---
-resource "aws_vpc" "mumbai" {
-  provider   = aws.mumbai
-  cidr_block = "10.10.0.0/16"
-  tags       = { Name = "mumbai-cloud-vpc" }
-}
-
-resource "aws_subnet" "mumbai_private" {
-  provider          = aws.mumbai
-  vpc_id            = aws_vpc.mumbai.id
-  cidr_block        = "10.10.1.0/24"
-  availability_zone = "ap-south-1a"
-  tags              = { Name = "mumbai-private-subnet" }
-}
-
-resource "aws_route_table" "mumbai" {
-  provider = aws.mumbai
-  vpc_id   = aws_vpc.mumbai.id
-  tags     = { Name = "mumbai-vpn-rt" }
-}
-
-resource "aws_route_table_association" "mumbai" {
-  provider       = aws.mumbai
-  subnet_id      = aws_subnet.mumbai_private.id
-  route_table_id = aws_route_table.mumbai.id
-}
-
-resource "aws_security_group" "mumbai_vpn" {
-  provider = aws.mumbai
-  vpc_id   = aws_vpc.mumbai.id
-  name     = "mumbai-vpn-sg"
-
-  ingress { from_port = -1 to_port = -1 protocol = "icmp" cidr_blocks = ["10.20.0.0/16"] }
-  ingress { from_port = 22 to_port = 22 protocol = "tcp"  cidr_blocks = ["10.20.0.0/16"] }
-  egress  { from_port = 0  to_port = 0  protocol = "-1"   cidr_blocks = ["0.0.0.0/0"] }
-}
-
-resource "aws_instance" "mumbai_workload" {
-  provider               = aws.mumbai
-  ami                     = "ami-0xxxxxxxxxxxxxxxx" # Amazon Linux 2 AMI in ap-south-1
-  instance_type           = "t2.micro"
-  subnet_id               = aws_subnet.mumbai_private.id
-  vpc_security_group_ids  = [aws_security_group.mumbai_vpn.id]
-  tags                    = { Name = "mumbai-cloud-workload" }
-}
-
-resource "aws_customer_gateway" "singapore" {
-  provider   = aws.mumbai
-  bgp_asn    = 65000
-  ip_address = aws_eip.singapore.public_ip
-  type       = "ipsec.1"
-  tags       = { Name = "singapore-cgw" }
-}
-
-resource "aws_vpn_gateway" "mumbai" {
-  provider = aws.mumbai
-  vpc_id   = aws_vpc.mumbai.id
-  tags     = { Name = "mumbai-vgw" }
-}
-
-resource "aws_vpn_gateway_route_propagation" "mumbai" {
-  provider       = aws.mumbai
-  vpn_gateway_id = aws_vpn_gateway.mumbai.id
-  route_table_id = aws_route_table.mumbai.id
-}
-
-resource "aws_vpn_connection" "main" {
-  provider            = aws.mumbai
-  customer_gateway_id = aws_customer_gateway.singapore.id
-  vpn_gateway_id      = aws_vpn_gateway.mumbai.id
-  type                = "ipsec.1"
-  static_routes_only  = true
-  tags                = { Name = "mumbai-singapore-vpn" }
-}
-
-resource "aws_vpn_connection_route" "singapore_cidr" {
-  provider                = aws.mumbai
-  vpn_connection_id       = aws_vpn_connection.main.id
-  destination_cidr_block  = "10.20.0.0/16"
-}
-```
-
-> Terraform provisions the AWS-side resources and the EC2 instance itself but **cannot configure Openswan inside the OS** — Part C (SSH + manual Openswan config, or a `user_data` bootstrap script referencing the PSK output from `aws_vpn_connection.main.tunnel1_preshared_key`) is still a manual/scripted post-step.
-
----
-
-## 11. Troubleshooting / Edge Cases Checklist
+## 9. Troubleshooting / Edge Cases Checklist
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
@@ -693,10 +503,12 @@ resource "aws_vpn_connection_route" "singapore_cidr" {
 | Tunnel flaps up/down repeatedly | DPD (dead peer detection) mismatch or NAT device between endpoints re-mapping ports | Check `dpddelay`/`dpdtimeout`, ensure NAT-T (UDP 4500) is allowed |
 | `ipsec restart` fails with `keyword auth, invalid value: esp` | Leftover `auth=esp` line copied from the downloaded Openswan config | Delete the `auth=esp` line — it's not a valid keyword on AL2's libreswan-based openswan package |
 | `esp="aes128-sha1;modp1024" is invalid: ESP encryption algorithm 'aes' is not supported` | Algorithm string format rejected by the installed openswan/libreswan version | Try `aes128-sha1-modp1024` (hyphens instead of semicolon) as an alternate `phase2alg`/`ike` syntax, or check `ipsec --version` for the exact algorithm-naming convention it expects |
+| Tunnel UP, routes look correct, still no ping | Local Linux firewall silently dropping traffic | Check `sudo iptables -L -n -v` (or `firewall-cmd --list-all` if firewalld is active); Amazon Linux 2 ships with no firewall enabled by default, but confirm nothing else in your environment added rules |
+| Small pings work, larger pings/SSH/app traffic hang or time out over the tunnel | IPsec overhead reduces effective MTU, causing fragmentation issues | Test with `ping -M do -s 1400 <ip>` to find the working size; if needed, configure MSS clamping (`iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu`) — not required for a basic ping-only lab, but a common real-world VPN symptom |
 
 ---
 
-## 12. Interview Q&A
+## 10. Interview Q&A
 
 **Q1: What's the difference between Site-to-Site VPN and Direct Connect?**
 A: VPN rides the public internet with IPSec encryption, provisions in minutes, capped around 1.25 Gbps per tunnel. Direct Connect is a dedicated physical circuit into an AWS Direct Connect location, offers consistent low latency and higher bandwidth (up to 100 Gbps), but takes weeks to provision and costs more. VPN is often used as a Direct Connect failover.
@@ -727,7 +539,7 @@ A: Not literally. The original Openswan project is unmaintained, so on Amazon Li
 
 ---
 
-## 13. Cheat Sheet
+## 11. Cheat Sheet
 
 ```
 Mumbai (AWS side)        = VPC 10.10.0.0/16, private EC2, VGW, CGW object, VPN connection, route propagation
@@ -758,7 +570,7 @@ Service commands:
 
 ---
 
-## 14. Mastery Checklist
+## 12. Mastery Checklist
 
 - [ ] Explained what Site-to-Site VPN is and why/when to use it vs Direct Connect
 - [ ] Built Singapore VPC + subnet + IGW + route table + SG + EC2 + EIP
@@ -772,4 +584,20 @@ Service commands:
 - [ ] Verified Tunnel1 status = UP in the AWS console
 - [ ] Successfully pinged Mumbai private IP from Singapore instance
 - [ ] Can explain the difference between Tunnel1/Tunnel2 redundancy and true active-active ECMP
-- [ ] Cleaned up: deleted VPN connection, VGW detach/delete, CGW delete, terminated both EC2 instances, released EIP
+- [ ] Cleaned up all resources in the correct order (see §15 below)
+
+---
+
+## 15. Cleanup (Correct Order Matters)
+
+AWS enforces dependency order on deletion — deleting out of order will throw a "resource in use" error. Delete in exactly this sequence:
+
+1. **Delete the VPN Connection** (`mumbai-singapore-vpn`) — VPC console → Site-to-Site VPN Connections → select it → Actions → Delete. Wait for state to reach `deleted`.
+2. **Detach the Virtual Private Gateway** from `mumbai-cloud-vpc` — select `mumbai-vgw` → Actions → Detach from VPC. Wait for `detached` state.
+3. **Delete the Virtual Private Gateway** (`mumbai-vgw`).
+4. **Delete the Customer Gateway** (`singapore-cgw`).
+5. **Terminate both EC2 instances** (Mumbai and Singapore).
+6. **Release the Elastic IP** (Singapore) — EC2 console → Elastic IPs → select it → Actions → Release. (An unassociated EIP incurs charges, so don't skip this.)
+7. **Delete both route tables, subnets, internet gateway, and VPCs** in each region (route table → subnet → IGW detach/delete → VPC, in that order, since each depends on the previous being gone).
+
+> Trying to delete the VGW before detaching it, or the VPC before its subnets/IGW are gone, is the most common cleanup error — AWS will block it with a dependency-violation message rather than silently failing, so if you hit that, just back up one step in this order.
