@@ -94,11 +94,12 @@ This is **Source NAT (SNAT)** for outbound-only, stateful, managed at the AWS hy
 
 ### Target lab architecture — single AZ, one public + one private subnet
 
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/5ef7d431-7ad1-40e0-bd4e-4cc9465cc4c9" />
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/91e90917-667b-4ce8-8cb0-6520e25114a6" />
+
 
 
                                   
-### Packet flow for `curl https://checkip.amazonaws.com` from the private instance
+### Packet flow for `curl https://www.saimeshaikh.in` from the private instance
 
 ```
 private-instance (10.0.2.10)
