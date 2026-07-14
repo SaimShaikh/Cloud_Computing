@@ -17,9 +17,7 @@ By the end of this lab, you will have:
 
 ---
 
-# Architecture
-
-```
+## Architecture
 
 ```
                          Internet
@@ -44,7 +42,7 @@ By the end of this lab, you will have:
 
 ---
 
-# Prerequisites
+## Prerequisites
 
 Before starting this lab, make sure you have:
 
@@ -56,23 +54,21 @@ Before starting this lab, make sure you have:
 
 ---
 
-# Network Planning
+## Network Planning
 
-## VPC Planning
+### VPC Planning
 
 | VPC | CIDR |
-|------|-------------|
+|-----|------|
 | VPC-A | 10.1.0.0/16 |
 | VPC-B | 10.2.0.0/16 |
 | VPC-C | 10.3.0.0/16 |
 | VPC-D | 10.4.0.0/16 |
 
----
-
-## Subnet Planning
+### Subnet Planning
 
 | VPC | Subnet | CIDR |
-|------|-------------|-------------|
+|-----|--------|------|
 | VPC-A | VPC-A-Subnet | 10.1.1.0/24 |
 | VPC-B | VPC-B-Subnet | 10.2.1.0/24 |
 | VPC-C | VPC-C-Subnet | 10.3.1.0/24 |
@@ -80,49 +76,37 @@ Before starting this lab, make sure you have:
 
 ---
 
-# Step 1 — Create VPC-A
+## Step 1 — Create VPC-A
 
-Navigate to
-
-```
-
-VPC Console
-↓
-Your VPCs
-↓
-Create VPC
+Navigate to:
 
 ```
+VPC Console → Your VPCs → Create VPC
+```
 
-Choose
+Choose:
 
-- Resources to create : **VPC Only**
+- Resources to create: **VPC Only**
 
 Fill the details:
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | VPC-A |
 | IPv4 CIDR | 10.1.0.0/16 |
 | IPv6 | None |
 | Tenancy | Default |
 
-Click
-
-```
-
-Create VPC
-
-```
+Click **Create VPC**.
 
 ---
 
-# Step 2 — Create VPC-B
+## Step 2 — Create VPC-B
 
 Repeat the same steps.
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | VPC-B |
 | CIDR | 10.2.0.0/16 |
 
@@ -130,10 +114,10 @@ Create VPC.
 
 ---
 
-# Step 3 — Create VPC-C
+## Step 3 — Create VPC-C
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | VPC-C |
 | CIDR | 10.3.0.0/16 |
 
@@ -141,102 +125,75 @@ Create VPC.
 
 ---
 
-# Step 4 — Create VPC-D
+## Step 4 — Create VPC-D
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | VPC-D |
 | CIDR | 10.4.0.0/16 |
 
 Create VPC.
 
----
-
-Expected Result
+**Expected Result:**
 
 ```
-
 VPC-A
 VPC-B
 VPC-C
 VPC-D
-
 ```
 
 ---
 
-# Step 5 — Create Subnets
+## Step 5 — Create Subnets
 
-Navigate to
-
-```
-
-VPC Console
-↓
-Subnets
-↓
-Create Subnet
+Navigate to:
 
 ```
+VPC Console → Subnets → Create Subnet
+```
 
----
-
-## Create Subnet for VPC-A
+### Subnet for VPC-A
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | VPC | VPC-A |
 | Name | VPC-A-Subnet |
 | AZ | ap-south-1a |
 | CIDR | 10.1.1.0/24 |
 
-Click
+Click **Create Subnet**.
 
-```
-
-Create Subnet
-
-```
-
----
-
-## Create Subnet for VPC-B
+### Subnet for VPC-B
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | VPC | VPC-B |
 | Name | VPC-B-Subnet |
 | AZ | ap-south-1a |
 | CIDR | 10.2.1.0/24 |
 
----
-
-## Create Subnet for VPC-C
+### Subnet for VPC-C
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | VPC | VPC-C |
 | Name | VPC-C-Subnet |
 | AZ | ap-south-1a |
 | CIDR | 10.3.1.0/24 |
 
----
-
-## Create Subnet for VPC-D
+### Subnet for VPC-D
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | VPC | VPC-D |
 | Name | VPC-D-Subnet |
 | AZ | ap-south-1a |
 | CIDR | 10.4.1.0/24 |
 
----
-
-Expected Result
+**Expected Result:**
 
 ```
-
 VPC-A
 └──10.1.1.0/24
 
@@ -248,149 +205,83 @@ VPC-C
 
 VPC-D
 └──10.4.1.0/24
-
 ```
 
 ---
 
-# Step 6 — Create Internet Gateway
+## Step 6 — Create Internet Gateway
 
-Navigate to
+Navigate to:
 
 ```
-
-VPC Console
-↓
-Internet Gateways
-↓
-Create Internet Gateway
-
+VPC Console → Internet Gateways → Create Internet Gateway
 ```
 
 Create the following:
 
 | Name |
-|------------|
+|------|
 | IGW-A |
 | IGW-B |
 | IGW-C |
 | IGW-D |
 
-After creating each Internet Gateway,
-
-Click
-
-```
-
-Actions
-↓
-
-Attach to VPC
-
-```
+After creating each Internet Gateway, click **Actions → Attach to VPC**.
 
 Attach them as follows:
 
 | Internet Gateway | Attach To |
-|----------------|-------------|
+|-------------------|-----------|
 | IGW-A | VPC-A |
 | IGW-B | VPC-B |
 | IGW-C | VPC-C |
 | IGW-D | VPC-D |
 
----
-
-Expected Result
+**Expected Result:**
 
 ```
-
 IGW-A → VPC-A
-
 IGW-B → VPC-B
-
 IGW-C → VPC-C
-
 IGW-D → VPC-D
-
 ```
 
 ---
 
-## Next Section
-
-In the next part we'll cover:
-
-- Route Tables
-- Transit Gateway
-- Transit Gateway Attachments
-- TGW Routing
-- EC2 Launch
-- Security Groups
-- Testing Connectivity
-
----
-
-# Step 7 — Create Route Tables
+## Step 7 — Create Route Tables
 
 When a VPC is created, AWS automatically creates a **Main Route Table** for that VPC.
 
 For this lab, we will use the existing route tables instead of creating new ones.
 
-Navigate to
+Navigate to:
 
 ```
-VPC Console
-↓
-Route Tables
+VPC Console → Route Tables
 ```
 
 Rename the automatically created route tables for easier identification.
 
 | Route Table | VPC |
-|-------------|------|
+|-------------|-----|
 | VPC-A | VPC-A |
 | VPC-B | VPC-B |
 | VPC-C | VPC-C |
 | VPC-D | VPC-D |
 
-Verify each route table is associated with the correct subnet.
-
-Navigate to
-
-```
-Route Table
-↓
-Subnet Associations
-```
-
-Expected Result
-
-| Route Table | Associated Subnet |
-|-------------|-------------------|
-| VPC-A | VPC-A-Subnet |
-| VPC-B | VPC-B-Subnet |
-| VPC-C | VPC-C-Subnet |
-| VPC-D | VPC-D-Subnet |
-
 ---
 
-# Step 8 — Add Internet Gateway Route
+## Step 8 — Add Internet Gateway Route
 
 Each VPC should have Internet access.
 
-Navigate to
+Navigate to:
 
 ```
-Route Table
-↓
-Routes
-↓
-Edit Routes
-↓
-Add Route
+Route Table → Routes → Edit Routes → Add Route
 ```
 
-Add the following route.
+Add the following route:
 
 | Destination | Target |
 |-------------|--------|
@@ -398,56 +289,50 @@ Add the following route.
 
 Repeat for all four route tables.
 
----
+**Expected Route Tables:**
 
-Expected Route Table
-
-### VPC-A
+**VPC-A**
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.1.0.0/16 | local |
 | 0.0.0.0/0 | IGW-A |
 
-### VPC-B
+**VPC-B**
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.2.0.0/16 | local |
 | 0.0.0.0/0 | IGW-B |
 
-### VPC-C
+**VPC-C**
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.3.0.0/16 | local |
 | 0.0.0.0/0 | IGW-C |
 
-### VPC-D
+**VPC-D**
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.4.0.0/16 | local |
 | 0.0.0.0/0 | IGW-D |
 
 ---
 
-# Step 9 — Create Transit Gateway
+## Step 9 — Create Transit Gateway
 
-Navigate to
+Navigate to:
 
 ```
-VPC Console
-↓
-Transit Gateways
-↓
-Create Transit Gateway
+VPC Console → Transit Gateways → Create Transit Gateway
 ```
 
-Configure the following.
+Configure the following:
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | TGW-Hub-Demo |
 | Description | Hub and Spoke Architecture |
 | Amazon ASN | Default |
@@ -457,119 +342,85 @@ Configure the following.
 | DNS Support | Enable |
 | VPN ECMP Support | Enable |
 
-Click
+Click **Create Transit Gateway**.
 
-```
-Create Transit Gateway
-```
-
-Wait until the Transit Gateway state changes to
-
-```
-Available
-```
+Wait until the Transit Gateway state changes to `Available`.
 
 ---
 
-# Step 10 — Create Transit Gateway Attachments
+## Step 10 — Create Transit Gateway Attachments
 
-Navigate to
+Navigate to:
 
 ```
-Transit Gateway
-↓
-Attachments
-↓
-Create Transit Gateway Attachment
+Transit Gateway → Attachments → Create Transit Gateway Attachment
 ```
 
 Create one attachment for each VPC.
 
----
-
-## Attachment 1
+**Attachment 1**
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | TGW-Attachment-VPC-A |
 | Resource Type | VPC |
 | Transit Gateway | TGW-Hub-Demo |
 | VPC | VPC-A |
 | Subnet | VPC-A-Subnet |
 
-Click
+Click **Create Attachment**.
 
-```
-Create Attachment
-```
-
----
-
-## Attachment 2
+**Attachment 2**
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | TGW-Attachment-VPC-B |
 | Resource Type | VPC |
 | Transit Gateway | TGW-Hub-Demo |
 | VPC | VPC-B |
 | Subnet | VPC-B-Subnet |
 
----
-
-## Attachment 3
+**Attachment 3**
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | TGW-Attachment-VPC-C |
 | Resource Type | VPC |
 | Transit Gateway | TGW-Hub-Demo |
 | VPC | VPC-C |
 | Subnet | VPC-C-Subnet |
 
----
-
-## Attachment 4
+**Attachment 4**
 
 | Parameter | Value |
-|------------|----------------|
+|-----------|-------|
 | Name | TGW-Attachment-VPC-D |
 | Resource Type | VPC |
 | Transit Gateway | TGW-Hub-Demo |
 | VPC | VPC-D |
 | Subnet | VPC-D-Subnet |
 
-Wait until all attachments show
-
-```
-Available
-```
+Wait until all attachments show `Available`.
 
 ---
 
-# Step 11 — Configure Route Tables for Transit Gateway
+## Step 11 — Add Other VPCs' CIDR Blocks to Each Route Table
 
-Each VPC route table must contain routes for all other VPC CIDR blocks pointing to the Transit Gateway.
+No subnet association changes are needed here — each VPC keeps its own subnet tied to its own route table as created by default.
 
-Navigate to
+The only thing required in this step is: for every VPC's route table, add a route for **each of the other three VPCs' CIDR blocks**, pointing to the Transit Gateway.
+
+Example — in **VPC-A's** route table, add the CIDR ranges of **VPC-B, VPC-C, and VPC-D**, each pointing to the Transit Gateway. Repeat this pattern for VPC-B, VPC-C, and VPC-D (each pointing to the other three).
+
+Navigate to:
 
 ```
-VPC Console
-↓
-Route Tables
-↓
-Routes
-↓
-Edit Routes
+VPC Console → Route Tables → Routes → Edit Routes
 ```
 
----
+**VPC-A Route Table**
 
-## VPC-A Route Table
-
-Keep the existing routes.
-
-Add the following.
+Keep the existing routes and add:
 
 | Destination | Target |
 |-------------|--------|
@@ -577,119 +428,72 @@ Add the following.
 | 10.3.0.0/16 | Transit Gateway |
 | 10.4.0.0/16 | Transit Gateway |
 
-Final Route Table
+Final Route Table:
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.1.0.0/16 | local |
 | 10.2.0.0/16 | Transit Gateway |
 | 10.3.0.0/16 | Transit Gateway |
 | 10.4.0.0/16 | Transit Gateway |
 | 0.0.0.0/0 | Internet Gateway |
 
----
-
-## VPC-B Route Table
+**VPC-B Route Table**
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.2.0.0/16 | local |
 | 10.1.0.0/16 | Transit Gateway |
 | 10.3.0.0/16 | Transit Gateway |
 | 10.4.0.0/16 | Transit Gateway |
 | 0.0.0.0/0 | Internet Gateway |
 
----
-
-## VPC-C Route Table
+**VPC-C Route Table**
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.3.0.0/16 | local |
 | 10.1.0.0/16 | Transit Gateway |
 | 10.2.0.0/16 | Transit Gateway |
 | 10.4.0.0/16 | Transit Gateway |
 | 0.0.0.0/0 | Internet Gateway |
 
----
-
-## VPC-D Route Table
+**VPC-D Route Table**
 
 | Destination | Target |
-|-------------|---------|
+|-------------|--------|
 | 10.4.0.0/16 | local |
 | 10.1.0.0/16 | Transit Gateway |
 | 10.2.0.0/16 | Transit Gateway |
 | 10.3.0.0/16 | Transit Gateway |
 | 0.0.0.0/0 | Internet Gateway |
 
----
-
-# Step 12 — Verify Route Table Associations
-
-Navigate to
-
-```
-Route Tables
-↓
-Subnet Associations
-```
-
-Verify each subnet is associated with its respective route table.
-
-| Route Table | Subnet |
-|-------------|---------|
-| VPC-A | VPC-A-Subnet |
-| VPC-B | VPC-B-Subnet |
-| VPC-C | VPC-C-Subnet |
-| VPC-D | VPC-D-Subnet |
-
-Expected Result
+**Expected Result:**
 
 - 4 VPCs created ✅
 - 4 Subnets created ✅
 - 4 Internet Gateways attached ✅
 - 4 Route Tables configured ✅
 - 4 TGW Attachments available ✅
-- All Route Tables contain TGW routes ✅
+- All Route Tables contain the other three VPCs' CIDR blocks pointing to TGW ✅
 
 ---
 
-Continue to **Part 3**, where we will:
+## Step 12 — Launch EC2 Instances
 
-- Launch EC2 Instances
-- Configure Security Groups
-- Verify Private IP Connectivity
-- Test Ping Between VPCs
-- Test SSH Between VPCs
-- Troubleshoot Common Issues
+Launch one EC2 instance in each VPC.
 
-
----
-
-# Step 13 — Launch EC2 Instances
-
-In this step, launch one EC2 instance in each VPC.
-
-Navigate to
+Navigate to:
 
 ```
-EC2 Console
-↓
-Instances
-↓
-Launch Instance
+EC2 Console → Instances → Launch Instance
 ```
 
----
-
-## EC2 Configuration
-
-Use the following configuration for all four EC2 instances.
+**EC2 Configuration** (use for all four instances):
 
 | Parameter | Value |
-|------------|-----------------------------|
-| Name | EC2-VPC-A (Change accordingly) |
+|-----------|-------|
+| Name | EC2-VPC-A (change accordingly) |
 | AMI | Ubuntu Server 24.04 LTS |
 | Instance Type | t2.micro |
 | Key Pair | Select your existing Key Pair |
@@ -700,111 +504,73 @@ Use the following configuration for all four EC2 instances.
 
 Repeat the same process for all VPCs.
 
----
-
-## EC2 Details
+**EC2 Details**
 
 | Instance Name | VPC | Subnet |
-|---------------|------|----------------|
+|---------------|-----|--------|
 | EC2-VPC-A | VPC-A | VPC-A-Subnet |
 | EC2-VPC-B | VPC-B | VPC-B-Subnet |
 | EC2-VPC-C | VPC-C | VPC-C-Subnet |
 | EC2-VPC-D | VPC-D | VPC-D-Subnet |
 
-Wait until every instance reaches
-
-```
-Running
-```
-
-and
-
-```
-Status Check
-
-3 / 3 Checks Passed
-```
+Wait until every instance reaches `Running` and `Status Check: 3/3 Checks Passed`.
 
 ---
 
-# Step 14 — Configure Security Groups
+## Step 13 — Configure Security Groups
 
 Each EC2 instance must allow SSH and ICMP traffic.
 
-Navigate to
+Navigate to:
 
 ```
-EC2
-↓
-Security Groups
-↓
-Inbound Rules
-↓
-Edit Inbound Rules
+EC2 → Security Groups → Inbound Rules → Edit Inbound Rules
 ```
 
-Configure the following rules.
-
-## Rule 1
+**Rule 1**
 
 | Type | Protocol | Port | Source |
-|------|----------|------|----------------|
+|------|----------|------|--------|
 | SSH | TCP | 22 | My IP |
 
----
-
-## Rule 2
+**Rule 2**
 
 | Type | Protocol | Source |
-|------|----------|----------------|
+|------|----------|--------|
 | All ICMP - IPv4 | ICMP | 10.0.0.0/8 |
 
----
-
-(Optional)
-
-Allow SSH between EC2 instances.
+**(Optional) Allow SSH between EC2 instances**
 
 | Type | Port | Source |
-|------|------|----------------|
+|------|------|--------|
 | SSH | 22 | 10.0.0.0/8 |
 
----
-
-Expected Security Group
+**Expected Security Group:**
 
 ```
 Inbound
-
-SSH
-My IP
-
-All ICMP IPv4
-10.0.0.0/8
-
-SSH
-10.0.0.0/8
+- SSH        → My IP
+- All ICMP   → 10.0.0.0/8
+- SSH        → 10.0.0.0/8
 ```
 
 ---
 
-# Step 15 — Verify EC2 Networking
+## Step 14 — Verify EC2 Networking
 
-Open each EC2 instance.
-
-Verify the following.
+Open each EC2 instance and verify:
 
 | Parameter | Expected |
-|------------|----------------|
+|-----------|----------|
 | State | Running |
 | Status Check | 3/3 Passed |
 | Public IPv4 | Available |
 | Private IPv4 | Available |
 
-Example
+Example:
 
 | EC2 | Private IP |
-|------|----------------|
+|-----|------------|
 | EC2-VPC-A | 10.1.1.x |
 | EC2-VPC-B | 10.2.1.x |
 | EC2-VPC-C | 10.3.1.x |
@@ -812,23 +578,21 @@ Example
 
 ---
 
-# Step 16 — Connect to EC2
+## Step 15 — Connect to EC2
 
-Connect from your local machine using SSH.
-
-Example
+Connect from your local machine using SSH:
 
 ```bash
 ssh -i pvtkeys.pem ubuntu@<Public-IP>
 ```
 
-Example
+Example:
 
 ```bash
 ssh -i pvtkeys.pem ubuntu@13.xxx.xxx.xxx
 ```
 
-Verify SSH login.
+Verify SSH login:
 
 ```
 ubuntu@ip-10-x-x-x
@@ -838,47 +602,29 @@ Repeat for all EC2 instances.
 
 ---
 
-# Step 17 — Verify Transit Gateway Connectivity
+## Step 16 — Verify Transit Gateway Connectivity
 
-The Transit Gateway routes traffic using **Private IP Addresses**.
+The Transit Gateway routes traffic using **Private IP Addresses**. Always use the **Private IP** while testing connectivity.
 
-Always use the **Private IP** while testing connectivity.
-
-Example
+Example:
 
 | Source | Destination |
-|---------|----------------|
+|--------|-------------|
 | EC2-A | 10.2.1.x |
 | EC2-A | 10.3.1.x |
 | EC2-A | 10.4.1.x |
 
----
-
-## Ping Test
-
-From EC2-A
+**Ping Test** (from EC2-A):
 
 ```bash
 ping 10.2.1.x
-```
-
-```bash
 ping 10.3.1.x
-```
-
-```bash
 ping 10.4.1.x
 ```
 
 Repeat the same test from every EC2 instance.
 
----
-
-## SSH Test
-
-Example
-
-From EC2-A
+**SSH Test** (from EC2-A):
 
 ```bash
 ssh ubuntu@10.2.1.x
@@ -894,17 +640,17 @@ If SSH authentication is required, copy your private key or use another authenti
 
 ---
 
-# Important Note
+## Important Note
 
 For communication between VPCs connected through a Transit Gateway, always use the **Private IP Address**.
 
-Correct
+✅ Correct:
 
 ```bash
 ping 10.3.1.191
 ```
 
-Incorrect
+❌ Incorrect:
 
 ```bash
 ping 65.xxx.xxx.xxx
@@ -914,125 +660,95 @@ The Public IP uses the Internet Gateway and does **not** traverse the Transit Ga
 
 ---
 
-# Step 18 — Verification
+## Step 17 — Final Verification Checklist
 
-Verify the following.
+**VPCs**
+- [ ] VPC-A Created
+- [ ] VPC-B Created
+- [ ] VPC-C Created
+- [ ] VPC-D Created
 
-## VPC
+**Subnets**
+- [ ] VPC-A-Subnet
+- [ ] VPC-B-Subnet
+- [ ] VPC-C-Subnet
+- [ ] VPC-D-Subnet
 
-- VPC-A Created
-- VPC-B Created
-- VPC-C Created
-- VPC-D Created
+**Internet Gateways**
+- [ ] IGW-A Attached
+- [ ] IGW-B Attached
+- [ ] IGW-C Attached
+- [ ] IGW-D Attached
 
----
+**Transit Gateway**
+- [ ] Transit Gateway Available
 
-## Subnets
+**Transit Gateway Attachments**
+- [ ] VPC-A Attachment Available
+- [ ] VPC-B Attachment Available
+- [ ] VPC-C Attachment Available
+- [ ] VPC-D Attachment Available
 
-- VPC-A-Subnet
-- VPC-B-Subnet
-- VPC-C-Subnet
-- VPC-D-Subnet
+**Route Tables** — each should contain:
 
----
-
-## Internet Gateway
-
-- IGW-A Attached
-- IGW-B Attached
-- IGW-C Attached
-- IGW-D Attached
-
----
-
-## Transit Gateway
-
-- Transit Gateway Available
-
----
-
-## Transit Gateway Attachments
-
-- VPC-A Attachment Available
-- VPC-B Attachment Available
-- VPC-C Attachment Available
-- VPC-D Attachment Available
-
----
-
-## Route Tables
-
-Each Route Table should contain
-
-### VPC-A
-
+**VPC-A**
 ```
 10.1.0.0/16 → local
 10.2.0.0/16 → TGW
 10.3.0.0/16 → TGW
 10.4.0.0/16 → TGW
-0.0.0.0/0 → IGW
+0.0.0.0/0   → IGW
 ```
 
-### VPC-B
-
+**VPC-B**
 ```
 10.2.0.0/16 → local
 10.1.0.0/16 → TGW
 10.3.0.0/16 → TGW
 10.4.0.0/16 → TGW
-0.0.0.0/0 → IGW
+0.0.0.0/0   → IGW
 ```
 
-### VPC-C
-
+**VPC-C**
 ```
 10.3.0.0/16 → local
 10.1.0.0/16 → TGW
 10.2.0.0/16 → TGW
 10.4.0.0/16 → TGW
-0.0.0.0/0 → IGW
+0.0.0.0/0   → IGW
 ```
 
-### VPC-D
-
+**VPC-D**
 ```
 10.4.0.0/16 → local
 10.1.0.0/16 → TGW
 10.2.0.0/16 → TGW
 10.3.0.0/16 → TGW
-0.0.0.0/0 → IGW
+0.0.0.0/0   → IGW
 ```
 
 ---
 
-# Step 19 — Cleanup
+## Step 18 — Cleanup
 
-To avoid AWS charges, delete the resources in the following order.
+To avoid AWS charges, delete the resources in the following order:
 
 1. Terminate all EC2 Instances
-
 2. Delete Transit Gateway Attachments
-
 3. Delete Transit Gateway
-
 4. Detach Internet Gateways
-
 5. Delete Internet Gateways
-
 6. Delete Subnets
-
 7. Delete Route Tables (only custom route tables, if any)
-
 8. Delete VPCs
 
 ---
 
-# Lab Completed Successfully
+## Lab Completed Successfully
 
 You have successfully created a Hub and Spoke Architecture using AWS Transit Gateway.
 
-Infrastructure Summary
+**Infrastructure Summary**
 
 - 4 VPCs
 - 4 Subnets
