@@ -335,7 +335,7 @@ Configure the following:
 |-----------|-------|
 | Name | TGW-Hub-Demo |
 | Description | Hub and Spoke Architecture |
-| Amazon ASN | Default |
+| Amazon ASN | 64512 (Default) |
 | Auto Accept Shared Attachments | Disable |
 | Default Route Table Association | Enable |
 | Default Route Table Propagation | Enable |
