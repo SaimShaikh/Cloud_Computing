@@ -157,6 +157,7 @@ Note there is deliberately **no NAT Gateway route** in the private route table �
 - Instance type: `t2.small` (minimum recommended; `t3.small` also works if available in your region).
 - Network: `vpc-openvpn-lab`, **public subnet**.
 - Auto-assign public IP: **enabled** (or attach an Elastic IP after launch — recommended for a stable endpoint).
+- In Firewall (security groups) Choose Create security group don’t creates new SG Opnevpn have there own SG Groups we Just have to Change SSH Source Only
 - Key pair: your existing key pair.
 - After launch: select the instance → **Actions → Networking → Change source/destination check → Stop**. This is mandatory — without disabling this check, the instance will silently drop forwarded VPN traffic.
 
