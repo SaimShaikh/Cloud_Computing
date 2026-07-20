@@ -6,8 +6,8 @@ Create the following architecture:
 
 - One Windows Bastion Host in a **Public Subnet**
 - One Windows EC2 in a **Private Subnet**
-- Private EC2 root EBS volume = **10 GB**
-- Increase the EBS volume to **30 GB**
+- Private EC2 root EBS volume = **30 GB**
+- Increase the EBS volume to **50 GB**
 - Extend the Windows C: drive so the operating system reflects the new size.
 
 ---
