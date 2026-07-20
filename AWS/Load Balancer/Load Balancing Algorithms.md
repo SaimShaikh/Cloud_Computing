@@ -229,12 +229,8 @@ Same as Round Robin, but each server is assigned a **weight** proportional to it
 
 A hash function is applied to the **client's source IP** (sometimes combined with destination IP/port) to consistently map a client to the same backend server.
 
-```
-hash(client_IP) % number_of_servers = target_server_index
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/fbbe9277-333c-48b8-9bab-ffcd0cab84dd" />
 
-Client 10.0.0.5  → hash → Server 2  (always Server 2, every request)
-Client 10.0.0.9  → hash → Server 1  (always Server 1, every request)
-```
 
 - **Best for:** Session persistence ("sticky sessions") without needing cookies — useful for stateful apps, gaming servers, or protocols without a session layer.
 - **Weakness:** Uneven distribution if client IPs aren't uniformly distributed (e.g., many users behind one corporate NAT IP all land on one server). Also, if a server is added/removed, hash results shift for many clients (unless consistent hashing is used — see Section 7).
@@ -243,12 +239,8 @@ Client 10.0.0.9  → hash → Server 1  (always Server 1, every request)
 
 Routes the new request to the server with the **fewest active connections** at that moment.
 
-```
-Current state:
-  S1 → 12 active connections
-  S2 → 4 active connections   ◀── new request goes here
-  S3 → 9 active connections
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/a519eaf1-bc2a-4ee3-b952-d0f1c853fa1e" />
+
 
 - **Best for:** Long-lived connections with variable duration (e.g., database proxies, WebSocket servers, persistent API sessions).
 - **Weakness:** "Number of connections" isn't always a good proxy for "actual load" — a connection could be idle or extremely CPU-heavy.
@@ -257,13 +249,8 @@ Current state:
 
 Combines **active connection count** and **server response time (latency)** to pick the fastest-responding, least-loaded server.
 
-```
-Score = f(active_connections, average_response_time)
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/93e105b2-00e7-4836-93bb-929b932501a3" />
 
-  S1: 5 conns, 120ms avg → score: moderate
-  S2: 3 conns, 300ms avg → score: worse (slow despite fewer conns)
-  S3: 6 conns, 80ms avg  → score: best ◀── selected
-```
 
 - **Best for:** Latency-sensitive applications (real-time APIs, trading platforms, live user-facing requests).
 - **Weakness:** More computationally expensive; requires continuous latency sampling; can flap between servers if latency is noisy.
@@ -272,18 +259,8 @@ Score = f(active_connections, average_response_time)
 
 Also called **Adaptive Load Balancing**. Routing decisions are made using **actual server resource metrics** — CPU utilization, memory usage, I/O wait, or a custom "agent" reporting server health/capacity to the LB.
 
-```
-             ┌────────────────────────┐
-             │   Load Balancer Agent   │
-             │  polls server metrics   │
-             └───────────┬────────────┘
-     ┌───────────────────┼───────────────────┐
-     ▼                   ▼                   ▼
-  S1: CPU 85%         S2: CPU 30%         S3: CPU 55%
-  (busy, skip)        (idle, prefer)      (moderate)
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/db2ca759-2b55-4587-8547-98c89d9bab21" />
 
-  New request routed to S2
-```
 
 - **Best for:** Compute-heavy workloads (video transcoding, ML inference, batch processing) where CPU/memory is the real constraint, not just connection count.
 - **Weakness:** Requires an agent or metrics-reporting mechanism on each backend; added architectural complexity.
