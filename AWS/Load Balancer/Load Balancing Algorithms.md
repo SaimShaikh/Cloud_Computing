@@ -346,74 +346,16 @@ AWS offers four types of managed load balancers under the **Elastic Load Balanci
 
 ### 9.1 Basic ALB Multi-AZ Web Architecture
 
-```
-                              Route 53 (DNS)
-                                    │
-                                    ▼
-                     ┌─────────────────────────────┐
-                     │  Application Load Balancer   │
-                     │        (Multi-AZ)            │
-                     └───────────┬─────────────────┘
-              ┌───────────────────┼───────────────────┐
-              ▼                   ▼                   ▼
-     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-     │   AZ-a           │ │   AZ-b           │ │   AZ-c           │
-     │ ┌─────────────┐  │ │ ┌─────────────┐  │ │ ┌─────────────┐  │
-     │ │ Target Group │  │ │ │ Target Group │  │ │ │ Target Group │  │
-     │ │  EC2 / ECS   │  │ │ │  EC2 / ECS   │  │ │ │  EC2 / ECS   │  │
-     │ └─────────────┘  │ │ └─────────────┘  │ │ └─────────────┘  │
-     └─────────────────┘ └─────────────────┘ └─────────────────┘
-              │                   │                   │
-              └───────────────────┼───────────────────┘
-                                   ▼
-                          ┌─────────────────┐
-                          │   RDS (Multi-AZ) │
-                          └─────────────────┘
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/2c55b7d8-958a-401c-809d-978724815748" />
 
 ### 9.2 NLB in Front of a Firewall Appliance (via GWLB)
+<img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/c98916ca-f379-4df3-9bbd-b233414f8970" />
 
-```
-     Internet
-        │
-        ▼
-┌───────────────┐
-│  NLB (public)  │
-└───────┬───────┘
-        ▼
-┌────────────────────────┐
-│  Gateway Load Balancer   │
-│   Endpoint (GWLBe)       │
-└───────────┬─────────────┘
-            ▼
-   ┌──────────────────┐
-   │ 3rd-Party Firewall│
-   │   Appliance Fleet  │
-   └─────────┬─────────┘
-             ▼
-   ┌──────────────────┐
-   │  Application VPC  │
-   │  (private subnet) │
-   └──────────────────┘
-```
 
 ### 9.3 Path-Based Routing with ALB (Microservices)
 
-```
-                       ┌───────────────────────────┐
-                       │           ALB              │
-                       │  Listener: 443 (HTTPS)      │
-                       └──────────────┬─────────────┘
-        ┌───────────────────┬─────────┼─────────┬───────────────────┐
-        ▼                   ▼                   ▼                   ▼
-   /api/users*         /api/orders*        /static/*            /ws/*
-        │                   │                   │                   │
-        ▼                   ▼                   ▼                   ▼
- ┌──────────────┐    ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
- │ Users Target  │    │ Orders Target │   │  S3 / CDN     │   │ WebSocket TG  │
- │    Group      │    │    Group      │   │  (via ALB)    │   │  (sticky)     │
- └──────────────┘    └──────────────┘   └──────────────┘   └──────────────┘
-```
+<img width="1625" height="968" alt="image" src="https://github.com/user-attachments/assets/5a7513f9-e18f-48e8-9d4f-7de1da30d4bd" />
+
 
 ### 9.4 Cross-Zone Load Balancing
 
