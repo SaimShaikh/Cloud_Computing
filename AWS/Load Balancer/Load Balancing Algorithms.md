@@ -207,7 +207,7 @@ STATIC                                   DYNAMIC
 
 ### 6.1 Round Robin
 
-Requests are distributed **sequentially and cyclically** across the server list.
+Round Robin is a simple static load balancing technique that distributes incoming requests to servers in a fixed sequential or rotational order. It is commonly used due to its ease of implementation.
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/e7bda416-2c1c-4e45-a5e2-da7a03aab8dc" />
 
@@ -217,7 +217,7 @@ Requests are distributed **sequentially and cyclically** across the server list.
 
 ### 6.2 Weighted Round Robin
 
-Same as Round Robin, but each server is assigned a **weight** proportional to its capacity. Higher-weight servers receive proportionally more requests.
+Weighted Round Robin is a static load balancing technique similar to Round Robin, but it distributes requests based on assigned weight values that represent each server’s capacity.
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/ef2c7590-413b-4afe-b97d-381708d7b9b9" />
 
@@ -227,7 +227,7 @@ Same as Round Robin, but each server is assigned a **weight** proportional to it
 
 ### 6.3 Source IP Hash
 
-A hash function is applied to the **client's source IP** (sometimes combined with destination IP/port) to consistently map a client to the same backend server.
+The Source IP Hash Load Balancing Algorithm is a static network routing technique that distributes incoming traffic across a pool of servers by generating a unique mathematical hash key from the client's source IP address. Because the calculation is deterministic, it ensures session persistence (server affinity), meaning a specific client will consistently be routed to the exact same backend server for the duration of their session.
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/fbbe9277-333c-48b8-9bab-ffcd0cab84dd" />
 
@@ -237,7 +237,7 @@ A hash function is applied to the **client's source IP** (sometimes combined wit
 
 ### 6.4 Least Connections
 
-Routes the new request to the server with the **fewest active connections** at that moment.
+The Least Connections algorithm is a dynamic load balancing technique that routes new requests to the server with the fewest active connections. It focuses on balancing workload by considering the current load on each server.
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/a519eaf1-bc2a-4ee3-b952-d0f1c853fa1e" />
 
@@ -247,7 +247,9 @@ Routes the new request to the server with the **fewest active connections** at t
 
 ### 6.5 Least Response Time
 
-Combines **active connection count** and **server response time (latency)** to pick the fastest-responding, least-loaded server.
+The Least Response method is a dynamic load balancing approach that aims to minimize response times by directing new requests to the server with the quickest response time. 
+
+
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/93e105b2-00e7-4836-93bb-929b932501a3" />
 
@@ -257,7 +259,7 @@ Combines **active connection count** and **server response time (latency)** to p
 
 ### 6.6 Resource-Based Load Balancing
 
-Also called **Adaptive Load Balancing**. Routing decisions are made using **actual server resource metrics** — CPU utilization, memory usage, I/O wait, or a custom "agent" reporting server health/capacity to the LB.
+Resource-Based Load Balancing assigns incoming requests to servers based on their current resource availability, such as CPU usage, memory, or bandwidth, ensuring efficient and balanced system performance.
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/db2ca759-2b55-4587-8547-98c89d9bab21" />
 
