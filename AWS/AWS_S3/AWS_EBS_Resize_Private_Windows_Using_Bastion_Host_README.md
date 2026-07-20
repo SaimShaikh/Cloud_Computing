@@ -1,4 +1,4 @@
-# AWS Hands-on Lab: Increase Root EBS Volume (10 GB → 30 GB) on a Private Windows EC2 using a Bastion Host
+# AWS Hands-on Lab: Increase Root EBS Volume (30 GB → 50 GB) on a Private Windows EC2 using a Bastion Host
 
 ## Objective
 
@@ -14,31 +14,8 @@ Create the following architecture:
 
 # Architecture
 
-```text
-                         Internet
-                             │
-                      Elastic IP (Optional)
-                             │
-                    Bastion Host (Windows)
-                    Public Subnet
-                             │
-                      RDP (TCP 3389)
-                             │
-                ─────────────────────────
-                             │
-                Windows EC2 (Private)
-                   Private Subnet
-                             │
-                    Root EBS Volume
-                        10 GB
-                             │
-                  Modify Volume (AWS)
-                     10 GB → 30 GB
-                             │
-             Extend Windows C: Partition
-                             │
-                    Final Size = 30 GB
-```
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/09adc742-756f-48c4-a928-9bdb879d1a7a" />
+
 
 ---
 
@@ -115,7 +92,7 @@ Wait until 2/2 status checks pass.
 - Windows Server 2025
 - Private Subnet
 - Public IP Disabled
-- Root Volume: 10 GB gp3
+- Root Volume: 30 GB gp3
 - t3.micro
 
 ---
@@ -159,8 +136,8 @@ Get-Volume
 
 Expected:
 
-- Disk = 10 GB
-- C: = 10 GB
+- Disk = 30 GB
+- C: = 30 GB
 
 ---
 
@@ -176,12 +153,12 @@ Actions → Modify Volume
 
 Old Size:
 ```
-10 GB
+30 GB
 ```
 
 New Size:
 ```
-30 GB
+50 GB
 ```
 
 Click **Modify**.
@@ -214,7 +191,7 @@ Disk Size:
 Partition still:
 
 ```
-10 GB
+20 GB
 ```
 
 ---
@@ -233,12 +210,7 @@ Right Click C:
 
 Finish.
 
-PowerShell:
 
-```powershell
-$size=(Get-PartitionSupportedSize -DriveLetter C).SizeMax
-Resize-Partition -DriveLetter C -Size $size
-```
 
 ---
 
@@ -250,7 +222,7 @@ Get-Volume
 
 Expected:
 
-C: = 30 GB
+C: = 50 GB
 
 ---
 
@@ -258,7 +230,7 @@ C: = 30 GB
 
 - Bastion reachable from Internet
 - Private EC2 reachable only through Bastion
-- Root EBS increased from 10 GB to 30 GB
+- Root EBS increased from 30 GB to 50 GB
 - Windows C: drive extended successfully
 - No downtime
 - Data preserved
@@ -276,7 +248,7 @@ C: = 30 GB
 
 Ensure there is contiguous unallocated space after C:.
 
-## Disk still 10 GB
+## Disk still 30 GB
 
 Run:
 
@@ -320,6 +292,3 @@ AWS increases the virtual disk size; Windows must extend the filesystem separate
 
 ---
 
-# Conclusion
-
-You successfully resized the root EBS volume of a private Windows EC2 from 10 GB to 30 GB while accessing the instance securely through a Bastion Host.
