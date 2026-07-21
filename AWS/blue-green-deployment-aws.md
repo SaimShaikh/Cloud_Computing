@@ -1,5 +1,8 @@
 # Blue/Green Deployment in AWS
 
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/9bfebfe3-155d-41da-8099-11e806d4fa51" />
+
+
 ## Part 1: Foundation Network (VPC)
 
 **Goal:** Create the foundation network.
