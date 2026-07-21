@@ -484,18 +484,3 @@ Currently, 100% of traffic goes to the Blue instance. Let's shift it using a Can
 
 ---
 
-## Recap: Skills Mastered
-
-You have successfully executed an enterprise-grade deployment strategy in AWS!
-
-By utilizing a Blue/Green architecture combined with a Canary traffic shift, you have learned how to safely introduce new application versions to a subset of users. This methodology minimizes downtime, drastically reduces risk, and ensures a seamless experience for your end-users.
-
-Here is a recap of the enterprise-grade skills you just mastered:
-
-- **Advanced VPC Networking:** Provisioning multi-AZ subnets to ensure high availability and fault tolerance for load balancers.
-- **EC2 Provisioning:** Automating web server configuration using User Data scripts upon boot.
-- **Target Group Decoupling:** Isolating distinct application environments into separate backend target groups for granular traffic control.
-- **Application Load Balancers (ALB):** Configuring listener rules to act as the central routing mechanism for your users.
-- **Canary Deployments:** Shifting precise percentages of live traffic between active environments to safely test new releases in production.
-
-Thank you for learning with KodeKloud! Keep building!
