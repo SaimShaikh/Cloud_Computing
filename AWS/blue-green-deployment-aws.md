@@ -470,6 +470,7 @@ Currently, 100% of traffic goes to the Blue instance. Let's shift it using a Can
 **Step 4: Test the Shift**
 - Refresh your browser repeatedly.
 - Result: Roughly 80% of the time you see BLUE, and 20% of the time you see GREEN.
+<img width="1680" height="1050" alt="Screenshot 2026-07-21 at 11 56 00 AM" src="https://github.com/user-attachments/assets/f078c003-3594-4f62-8253-db12bfbf977e" />
 
 **Step 5: Full Cutover**
 - Edit the Rule again.
