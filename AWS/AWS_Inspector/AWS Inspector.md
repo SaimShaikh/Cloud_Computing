@@ -127,16 +127,29 @@ EC2 → SSM Agent → Systems Manager Inventory → AWS Inspector → Vulnerabil
 
 Inspector does **not** directly scan:
 
-| Service | Why Not | Use This Instead |
-|---|---|---|
-| Amazon S3 | Object storage, no OS | Macie, AWS Config |
-| IAM | Identity & permissions, not software | IAM Access Analyzer |
-| Amazon RDS | Managed database engine | Systems Manager (self-managed DBs), Security Hub, Config |
-| DynamoDB | Fully managed NoSQL | AWS Config |
-| VPC / Security Groups | Network configuration, not software | Network Access Analyzer, VPC Reachability Analyzer, AWS Config, Firewall Manager |
-| Amazon EKS (cluster itself) | Cluster control plane not scanned | Inspector scans the container **images** in ECR that EKS runs |
-| Amazon ECS (cluster itself) | Cluster itself not scanned | Inspector scans the **ECR images** used by ECS tasks |
-| Aurora, EFS, FSx, CloudFront, API Gateway, Route 53, WAF, Shield | No OS/package layer to scan | Respective AWS security/config services |
+| AWS Service        | Scanned? | Reason                                                                  |
+| ------------------ | -------- | ----------------------------------------------------------------------- |
+| Amazon S3          | ❌ No     | Object storage; Inspector doesn't scan bucket contents or configuration |
+| Amazon RDS         | ❌ No     | Managed database service                                                |
+| Amazon DynamoDB    | ❌ No     | Managed NoSQL database                                                  |
+| Amazon Aurora      | ❌ No     | Managed database service                                                |
+| Amazon Redshift    | ❌ No     | Data warehouse                                                          |
+| Amazon ElastiCache | ❌ No     | Managed cache service                                                   |
+| AWS IAM            | ❌ No     | Identity service; use IAM Access Analyzer instead                       |
+| Amazon VPC         | ❌ No     | Networking service                                                      |
+| Security Groups    | ❌ No     | Used only to determine network exposure, not scanned themselves         |
+| Network ACLs       | ❌ No     | Used for exposure analysis only                                         |
+| Route Tables       | ❌ No     | Used for reachability analysis only                                     |
+| Internet Gateway   | ❌ No     | Used for exposure analysis only                                         |
+| NAT Gateway        | ❌ No     | Not scanned                                                             |
+| AWS WAF            | ❌ No     | Web application firewall                                                |
+| AWS Shield         | ❌ No     | DDoS protection                                                         |
+| CloudFront         | ❌ No     | CDN                                                                     |
+| API Gateway        | ❌ No     | API management                                                          |
+| Route 53           | ❌ No     | DNS service                                                             |
+| Amazon EFS         | ❌ No     | Managed file system                                                     |
+| Amazon FSx         | ❌ No     | Managed file systems                                                    |
+
 
 > **Important nuance:** Inspector *does* use networking data (Security Groups, Route Tables, Internet Gateway, ENIs, Public IPs) to determine whether a vulnerable EC2 instance is internet-reachable — this affects the severity of a finding — but it does not scan networking *configuration* for misconfigurations itself.
 
