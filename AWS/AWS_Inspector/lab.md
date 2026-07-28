@@ -142,6 +142,8 @@ Look for `inspector-lab-ec2` in the list. Its **Ping status** should show **Onli
 
 ✅ **Checkpoint:** Instance shows Online in Fleet Manager. This means Inspector will now be able to scan it.
 
+<img width="3247" height="1185" alt="image" src="https://github.com/user-attachments/assets/9d5ac84f-1516-43c8-bc13-701c319cde8d" />
+
 ---
 
 ## 2C-1. SSM Networking Requirements — VPC Endpoints & Security Groups Explained
@@ -198,6 +200,8 @@ Install an extra package so there's more surface area for findings:
 ```bash
 sudo yum install -y httpd
 ```
+<img width="3296" height="1648" alt="image" src="https://github.com/user-attachments/assets/6bf26a51-6f23-46fc-b3f0-180711c8593e" />
+<img width="3296" height="1648" alt="image" src="https://github.com/user-attachments/assets/8ac3f076-8f46-4770-888b-6970ecd15a57" />
 
 ### Step 38
 **Important: do NOT run `sudo yum update -y` yet.** We want the instance to stay outdated on purpose so Inspector has real vulnerabilities to find. Just close this browser tab for now.
