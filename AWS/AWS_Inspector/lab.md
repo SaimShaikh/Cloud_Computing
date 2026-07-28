@@ -201,7 +201,8 @@ Install an extra package so there's more surface area for findings:
 sudo yum install -y httpd
 ```
 <img width="3296" height="1648" alt="image" src="https://github.com/user-attachments/assets/6bf26a51-6f23-46fc-b3f0-180711c8593e" />
-<img width="3296" height="1648" alt="image" src="https://github.com/user-attachments/assets/8ac3f076-8f46-4770-888b-6970ecd15a57" />
+<img width="1624" height="607" alt="Screenshot 2026-07-28 at 4 40 45 PM" src="https://github.com/user-attachments/assets/c1b63425-2d71-4d6a-b9a2-c3a6352ea8cc" />
+
 
 ### Step 38
 **Important: do NOT run `sudo yum update -y` yet.** We want the instance to stay outdated on purpose so Inspector has real vulnerabilities to find. Just close this browser tab for now.
