@@ -1,7 +1,5 @@
-# AWS Inspector — Final Hands-On Lab (Verified Step-by-Step)
+# AWS Inspector 
 
-
----
 
 ## Before You Start
 
@@ -143,6 +141,38 @@ Look for `inspector-lab-ec2` in the list. Its **Ping status** should show **Onli
 > **If it's not there after 5 minutes:** go back to EC2 → select your instance → Actions → Security → Modify IAM role → confirm `EC2-SSM-Inspector-Role` is attached. Wait a few more minutes and check again.
 
 ✅ **Checkpoint:** Instance shows Online in Fleet Manager. This means Inspector will now be able to scan it.
+
+---
+
+## 2C-1. SSM Networking Requirements — VPC Endpoints & Security Groups Explained
+
+This lab intentionally uses the simplest setup, so it's worth being explicit about *why* it works and when it wouldn't.
+
+### Do we need VPC Endpoints here?
+**No — not in this lab.** Our instance:
+- Has a **public IP** (Step 24)
+- Sits in the **default VPC**, which already routes 0.0.0.0/0 to an **Internet Gateway**
+
+The SSM Agent reaches the AWS Systems Manager service over the public internet via that Internet Gateway. No VPC endpoint is required.
+
+**When you WOULD need VPC endpoints:** if the instance sits in a **private subnet with no route to the internet** (no IGW, no NAT Gateway) — same scenario as an earlier private-subnet SSM lab. In that case you'd need three **Interface VPC Endpoints** in that subnet:
+- `com.amazonaws.<region>.ssm`
+- `com.amazonaws.<region>.ssmmessages`
+- `com.amazonaws.<region>.ec2messages`
+
+Each of those endpoints also needs its **own security group** allowing **inbound HTTPS (443)** from the EC2 instance's security group (or its subnet CIDR) — otherwise the instance can reach the endpoint's ENI but the connection gets dropped.
+
+### Do we need a security group rule for SSM itself?
+**No inbound rule needed.** The SSM Agent only initiates **outbound** connections (agent → SSM service on port 443). It never listens for inbound traffic. Default security groups allow all outbound traffic by default, so this "just works" with zero extra configuration.
+
+The **only** inbound rule this lab actually needs is the port 22 rule for EC2 Instance Connect (already set in Step 25) — that's unrelated to SSM/Inspector and purely so you can log in and intentionally leave the box unpatched.
+
+### Quick reference
+
+| Scenario | VPC Endpoints Needed? | Security Group Rule Needed? |
+|---|---|---|
+| Public subnet + IGW (this lab) | ❌ No | Outbound: default (already open). No inbound rule needed for SSM. |
+| Private subnet, no internet route | ✅ Yes — `ssm`, `ssmmessages`, `ec2messages` interface endpoints | Endpoint SG: inbound 443 from instance SG/CIDR. Instance SG: outbound 443 (default is fine). |
 
 ---
 
