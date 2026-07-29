@@ -395,6 +395,9 @@ Click one open and read the CVE ID, severity, and fixed version — same as you 
 
 ✅ **Checkpoint:** You've seen real container image findings.
 
+<img width="3324" height="1892" alt="image" src="https://github.com/user-attachments/assets/739114c9-e3d7-41b3-a337-220a0e7adfb9" />
+<img width="3199" height="1639" alt="image" src="https://github.com/user-attachments/assets/b48c111c-4946-4600-a3a9-6ad629e94867" />
+
 ---
 
 ## 3E. Fix the Image and Push Again
