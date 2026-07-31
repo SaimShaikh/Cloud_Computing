@@ -10,47 +10,8 @@ This lab uses **two AWS accounts** in the **same Region** and covers both plain 
 
 ## Architecture
 
-```
-                 Source AWS Account (111111111111)
-+--------------------------------------------------------------+
-| EC2 Instance (ami-source-server)                              |
-|      │                                                        |
-|      ▼                                                        |
-|  Create Image (no reboot decision)                            |
-|      │                                                        |
-|  AMI (state: pending → available)                             |
-|      │                                                        |
-|  Backing EBS Snapshot(s)                                       |
-|      │                                                        |
-|  Edit AMI Launch Permissions ── Add Target Account ID          |
-|      │                                                        |
-|  (If encrypted) Share KMS CMK key policy with Target            |
-|      │                                                        |
-+------|---------------------------------------------------------+
-       │  Share
-       ▼
-                 Target AWS Account (222222222222)
-+--------------------------------------------------------------+
-| EC2 → AMIs → Owner = Shared with me                            |
-|      │                                                        |
-|      ▼                                                        |
-|  Copy AMI  (recommended — breaks dependency on Source)         |
-|      │                                                        |
-|  New AMI + New Snapshot(s) — Owner = Owned by me                |
-|      │                                                        |
-|  Launch EC2 (ami-target-server)                                |
-|      │                                                        |
-|  Verify data / app parity with source                          |
-+--------------------------------------------------------------+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/78882b7e-70d5-4c7d-afe3-6955ef02a464" />
 
-Failure scenario:
-Source deregisters original AMI
-        │
-        ├── Target did NOT copy  → shared AMI reference disappears, cannot launch
-        └── Target DID copy      → copied AMI + snapshot are fully independent, unaffected
-```
-
----
 
 ## Prerequisites
 
