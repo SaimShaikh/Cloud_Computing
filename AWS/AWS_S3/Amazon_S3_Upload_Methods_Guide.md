@@ -1,252 +1,405 @@
+
 # Amazon S3 Upload Methods
 
-## Overview
+> This guide explains **how Amazon S3 uploads objects**, which upload
+> method to choose, internal workflows, limits, performance
+> considerations, and interview questions.
 
-Amazon S3 supports multiple upload methods depending on the file size
-and use case.
+------------------------------------------------------------------------
 
-  -----------------------------------------------------------------------
-  Upload Method                          Max Object Size Best For
-  ------------------------- ---------------------------- ----------------
-  Single PUT Upload                                 5 GB Small files
+# Table of Contents
 
-  Multipart Upload                                  5 TB Large files
+1.  Introduction
+2.  Single PUT Upload
+3.  Multipart Upload
+4.  Presigned URL & Presigned POST
+5.  Multipart Upload API Workflow
+6.  How Failed Uploads Are Handled
+7.  Performance Best Practices
+8.  S3 Upload Limits
+9.  AWS CLI & SDK Behavior
+10. Comparison Table
+11. Real-World Scenarios
+12. Interview Questions
+13. Best Practices
 
-  Presigned URL / POST            Depends on upload type Direct
-                                                         browser/mobile
-                                                         uploads
-  -----------------------------------------------------------------------
+------------------------------------------------------------------------
+
+# Introduction
+
+Amazon S3 stores every file as an **object** inside a **bucket**.
+
+An object consists of:
+
+-   Object Key (file name/path)
+-   Object Data
+-   Metadata
+-   Version ID (if versioning is enabled)
+-   ETag (checksum identifier)
+
+S3 can store objects from **0 bytes to 5 TB**.
+
+Depending on file size and application architecture, different upload
+methods are available.
 
 ------------------------------------------------------------------------
 
 # 1. Single PUT Upload
 
-## How it works
+## Overview
 
-The client uploads the entire object in a single HTTP PUT request.
+A Single PUT Upload sends the complete object in one HTTP PUT request.
 
 ``` text
-Client
-   │
-   │ PUT Object
-   ▼
-Amazon S3
+Application
+      |
+      | PUT Object
+      v
+ Amazon S3
 ```
 
-## Best for
+### Maximum Size
 
--   Documents
+**5 GB**
+
+### Suitable For
+
 -   Images
+-   PDFs
+-   Documents
 -   Configuration files
 -   Log files
--   Small backups
--   Files up to 5 GB
 
-## Advantages
+### Advantages
 
--   Simple implementation
--   Low overhead
--   Fast for small files
+-   Easy implementation
+-   Less API overhead
+-   Ideal for small files
 
-## Limitations
+### Limitations
 
--   Maximum object size is 5 GB.
--   If the upload fails, the entire file must be uploaded again.
--   No parallel upload support.
-
-### Example
-
-Uploading:
-
--   report.pdf (20 MB)
--   image.png (5 MB)
--   log.txt (50 KB)
+-   No resume capability
+-   No parallel upload
+-   Entire upload restarts if interrupted
 
 ------------------------------------------------------------------------
 
-# 2. Multipart Upload (Recommended for Large Files)
+# 2. Multipart Upload
 
-## How it works
+## What is Multipart Upload?
 
-Instead of uploading one large file, the client splits it into multiple
-parts.
+Instead of uploading one large object, the client divides the object
+into multiple independent parts.
+
+Example:
 
 ``` text
 10 GB File
-      │
-      ▼
-Split into Parts
- │   │   │
- ▼   ▼   ▼
-P1  P2  P3 ... P20
- │   │   │
- └───┴───┘
-      ▼
- Amazon S3
-      │
-      ▼
-Complete Multipart Upload
+
+Part 1 500 MB
+Part 2 500 MB
+...
+Part 20 500 MB
 ```
 
-Each part is uploaded independently.
+Every part is uploaded separately.
 
-## Example
-
-A 10 GB file is divided into twenty 500 MB parts.
-
-If Parts 1--15 upload successfully and Part 16 fails:
-
--   Parts 1--15 remain stored.
--   Only Parts 16--20 need to be uploaded after resuming.
--   Previously uploaded parts are not uploaded again.
-
-## Best for
-
--   Videos
--   ISO images
--   Database backups
--   VM images
--   Files larger than 100 MB (recommended)
--   Files larger than 5 GB (required)
-
-## Advantages
-
--   Resume interrupted uploads
--   Parallel uploads
--   Retry only failed parts
--   Better performance over unstable networks
--   Supports objects up to 5 TB
-
-## Important Limits
-
-  Property                                                    Value
-  ------------------------- ---------------------------------------
-  Maximum object size                                          5 TB
-  Maximum number of parts                                    10,000
-  Part size                   5 MB--5 GB (last part can be smaller)
+After every part is uploaded, Amazon S3 combines them into one object.
 
 ------------------------------------------------------------------------
 
-# 3. Presigned URL / Presigned POST Upload
-
-## How it works
-
-Your backend generates a temporary upload URL.
-
-The browser or mobile application uploads directly to Amazon S3 without
-sending the file through your application server.
+## Internal Workflow
 
 ``` text
-Browser / Mobile App
-        │
-        ▼
-   Presigned URL
-        │
-        ▼
-    Amazon S3
+Client
+   |
+   | InitiateMultipartUpload
+   |
+Upload ID Created
+   |
+Upload Part 1
+Upload Part 2
+Upload Part 3
+...
+Upload Part N
+   |
+CompleteMultipartUpload
+   |
+Amazon S3 Creates Final Object
 ```
 
-## Best for
+------------------------------------------------------------------------
 
--   Profile picture uploads
--   Resume uploads
--   User documents
--   Customer portals
--   Mobile applications
+## Multipart Upload APIs
 
-## Advantages
+### Step 1 -- Initiate Multipart Upload
 
--   Reduces backend server load
--   Saves bandwidth
--   Improves scalability
--   More secure because the URL expires automatically
+S3 returns an Upload ID.
+
+Example
+
+    Upload ID
+    abc123xyz
+
+------------------------------------------------------------------------
+
+### Step 2 -- Upload Parts
+
+Each request contains
+
+-   Upload ID
+-   Part Number
+-   Part Data
+
+Example
+
+    UploadId=abc123xyz
+
+    PartNumber=1
+    PartNumber=2
+    PartNumber=3
+
+Each uploaded part returns an **ETag**.
+
+The ETag is required during completion.
+
+------------------------------------------------------------------------
+
+### Step 3 -- Complete Multipart Upload
+
+The client sends
+
+-   Upload ID
+-   Part Numbers
+-   ETags
+
+S3 validates every part and assembles the final object.
+
+------------------------------------------------------------------------
+
+## Failed Upload Example
+
+Suppose
+
+10 GB File
+
+20 Parts
+
+After uploading
+
+    Part1 ✓
+    Part2 ✓
+    ...
+    Part15 ✓
+
+    Part16 Failed
+
+Network disconnects.
+
+When upload resumes
+
+Only
+
+    Part16
+    Part17
+    Part18
+    Part19
+    Part20
+
+are uploaded.
+
+Previously uploaded parts remain stored.
+
+------------------------------------------------------------------------
+
+## If Upload Never Completes
+
+Incomplete parts remain inside S3.
+
+They are billed as storage until:
+
+-   Multipart upload completes
+-   Multipart upload is aborted
+-   Lifecycle Rule deletes incomplete uploads
+
+Example Lifecycle Rule
+
+Abort incomplete multipart uploads after **7 days**.
+
+------------------------------------------------------------------------
+
+## Parallel Upload
+
+Multipart Upload allows multiple parts simultaneously.
+
+``` text
+Part1 --->
+
+Part2 --->
+
+Part3 --->
+
+Part4 --->
+
+Amazon S3
+```
+
+Benefits
+
+-   Better bandwidth utilization
+-   Faster uploads
+-   Reduced upload time
+
+------------------------------------------------------------------------
+
+# 3. Presigned URL & Presigned POST
+
+## Why use it?
+
+Without presigned URLs
+
+``` text
+Browser
+   |
+Backend
+   |
+Amazon S3
+```
+
+Every upload passes through your server.
+
+With Presigned URL
+
+``` text
+Browser
+
+    |
+
+Amazon S3
+```
+
+The backend only generates a temporary URL.
+
+The browser uploads directly.
+
+Benefits
+
+-   Less backend load
+-   Lower bandwidth costs
+-   Better scalability
+
+------------------------------------------------------------------------
+
+# Upload Limits
+
+  Property                                   Value
+  --------------------- --------------------------
+  Maximum object size                         5 TB
+  Single PUT                                  5 GB
+  Maximum parts                             10,000
+  Minimum part size                           5 MB
+  Maximum part size                           5 GB
+  Last part               Can be smaller than 5 MB
+
+------------------------------------------------------------------------
+
+# AWS CLI Behavior
+
+Example
+
+    aws s3 cp backup.iso s3://my-bucket/
+
+For small files
+
+AWS CLI performs a normal PUT.
+
+For large files
+
+AWS CLI automatically switches to Multipart Upload based on its
+multipart threshold (configurable).
+
+AWS SDKs provide similar functionality.
 
 ------------------------------------------------------------------------
 
 # Comparison
 
-  Feature           Single PUT    Multipart Upload   Presigned URL / POST
-  ----------------- ------------- ------------------ ----------------------------------------
-  Max Size          5 GB          5 TB               Depends on underlying upload
-  Resume Upload     No            Yes                Depends on implementation
-  Parallel Upload   No            Yes                Supported when combined with Multipart
-  Best For          Small files   Large files        Direct browser/mobile uploads
+  Feature    Single PUT    Multipart     Presigned URL
+  ---------- ------------- ------------- ----------------------
+  Resume     No            Yes           Depends
+  Parallel   No            Yes           Yes (with multipart)
+  Max Size   5 GB          5 TB          Depends
+  Best Use   Small files   Large files   Browser/Mobile
 
 ------------------------------------------------------------------------
 
-# Which Upload Method Should You Choose?
+# Real-World Scenarios
 
-  -----------------------------------------------------------------------
-  File Size                 Recommended Method
-  ------------------------- ---------------------------------------------
-  1 KB -- 100 MB            Single PUT Upload
-
-  100 MB -- 5 GB            Multipart Upload (recommended)
-
-  More than 5 GB            Multipart Upload (required)
-
-  Browser or Mobile Upload  Presigned URL / POST (use Multipart for large
-                            files)
-  -----------------------------------------------------------------------
+  Scenario                   Method
+  -------------------------- ---------------------------
+  Profile picture            Presigned URL
+  PDF                        Single PUT
+  50 GB Database Backup      Multipart
+  VMware Image               Multipart
+  CCTV Footage               Multipart
+  User uploads 10 GB video   Presigned URL + Multipart
 
 ------------------------------------------------------------------------
 
-# Real-World Examples
+# Best Practices
 
-  -----------------------------------------------------------------------
-  Scenario                Recommended Method
-  ----------------------- -----------------------------------------------
-  Upload a PDF            Single PUT
-
-  Upload a profile        Presigned URL
-  picture                 
-
-  Upload a 20 GB database Multipart Upload
-  backup                  
-
-  Upload a 200 GB VM      Multipart Upload
-  backup                  
-
-  Upload a 15 GB video    Presigned URL + Multipart Upload
-  from a website          
-  -----------------------------------------------------------------------
+-   Use Single PUT only for small objects.
+-   Use Multipart Upload for anything larger than 100 MB.
+-   Multipart Upload is mandatory for objects larger than 5 GB.
+-   Abort incomplete multipart uploads using Lifecycle Rules.
+-   Validate uploads using ETags or checksums.
+-   Use Presigned URLs for browser and mobile uploads.
+-   Enable Transfer Acceleration for global users when beneficial.
+-   Consider S3 Express One Zone for ultra-low-latency workloads where
+    appropriate.
 
 ------------------------------------------------------------------------
 
 # Interview Questions
 
-### Q1. Can a Single PUT upload files larger than 5 GB?
+**Q. Why is Multipart Upload faster?**
 
-**Answer:** No.
+Because multiple parts can upload in parallel and failed parts are
+retried independently.
+
+**Q. Does S3 automatically split files?**
+
+No. The client (AWS CLI, SDK, Console, or your application) decides to
+use Multipart Upload.
+
+**Q. What is Upload ID?**
+
+A unique identifier returned when initiating a multipart upload. It
+associates every uploaded part with the same upload session.
+
+**Q. What is an ETag?**
+
+A value returned after uploading each part. It is used to verify
+uploaded parts and is required to complete a multipart upload.
+
+**Q. What happens if CompleteMultipartUpload is never called?**
+
+Uploaded parts remain incomplete and continue to incur storage charges
+until they are aborted or cleaned up by a Lifecycle Rule.
 
 ------------------------------------------------------------------------
 
-### Q2. Which upload method supports resume?
+# Summary
 
-**Answer:** Multipart Upload.
+  -----------------------------------------------------------------------
+  File Size                 Recommended Upload
+  ------------------------- ---------------------------------------------
+  \<100 MB                  Single PUT
 
-------------------------------------------------------------------------
+  100 MB--5 GB              Multipart Upload (recommended)
 
-### Q3. Who decides to use Multipart Upload?
+  \>5 GB                    Multipart Upload (required)
 
-**Answer:** The client (AWS CLI, AWS SDKs, AWS Management Console, or
-your application). Amazon S3 provides the capability, but the client
-decides when to use it.
-
-------------------------------------------------------------------------
-
-### Q4. What happens if a Multipart Upload fails at 75%?
-
-**Answer:** Successfully uploaded parts remain stored. Only the failed
-or missing parts need to be uploaded again.
-
-------------------------------------------------------------------------
-
-# Key Takeaways
-
--   Use **Single PUT** for small files.
--   Use **Multipart Upload** for large files or unreliable networks.
--   Use **Presigned URLs** for secure direct uploads from browsers and
-    mobile applications.
--   Multipart Upload is required for objects larger than **5 GB** and
-    supports objects up to **5 TB**.
+  Browser/Mobile            Presigned URL or Presigned POST (Multipart
+                            for large files)
+  -----------------------------------------------------------------------
