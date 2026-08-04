@@ -1,4 +1,4 @@
-# AWS Security Hub — End-to-End Guide
+# AWS Security Hub 
 
 ---
 
