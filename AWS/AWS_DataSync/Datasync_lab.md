@@ -1,185 +1,579 @@
-# AWS DataSync 
 
-**Scenario recap:** BrightWave Engineering Pvt Ltd wants to migrate an on-premises NFS file share to Amazon S3 using AWS DataSync, with nightly incremental syncs going forward. Since we don't have real on-prem hardware, this lab **simulates the on-prem NFS server using an EC2 instance**, and deploys the **DataSync Agent** as a second EC2 instance — entirely inside AWS.
+# AWS DataSync Hands-On Lab
+### Migrate On-Premises NFS → S3 using DataSync (Simulated in AWS)
 
-> **Important:** AWS explicitly does **not recommend** deploying the Agent on EC2 when the real source is genuinely on-premises, because of the added network latency of routing on-prem traffic through the cloud first. In production, you'd deploy the Agent as a VMware/KVM/Hyper-V VM physically inside your datacenter, as close to the NFS/SMB server as possible. The EC2-based NFS server + EC2-based Agent setup below is purely a **lab simulation** so you can practice the workflow without physical hardware.
-
-> All steps use the **AWS Management Console** (plus CloudShell/CLI only where the console requires it, e.g., looking up the Agent AMI ID). Region used in this lab: **ap-south-1 (Mumbai)**.
-
----
-
-## Step 1 — Create the VPC networking (if not already present)
-
-1. Go to **VPC Console → Your VPCs** and confirm you have a VPC with at least one **public subnet** (both EC2 instances will sit here for lab simplicity).
-2. Note the VPC ID and Subnet ID — you'll need them for both EC2 instances.
-3. Go to **Security Groups → Create security group**, name it `datasync-lab-sg`, and add these inbound rules:
-   - SSH (22) from your IP
-   - NFS (2049, TCP+UDP) from the security group itself (self-referencing, so agent ↔ NFS server can talk)
-   - All traffic from the security group itself (self-referencing) — simplifies the lab
+| Detail | Value |
+|---|---|
+| **Region** | ap-south-1 (Mumbai) |
+| **Target** | S3 bucket |
+| **Source** | NFS export on EC2 (simulating on-prem) |
+| **Agent** | EC2 instance running DataSync Agent AMI |
+| **Estimated Time** | 45–60 minutes |
+| **Estimated Cost** | ~$0.50–$1.00 (all resources are t3.medium / m5.2xlarge for a short lab) |
 
 ---
 
-## Step 2 — Launch the simulated on-prem NFS server (EC2)
+## Prerequisites Checklist
+
+Before you begin, confirm you have:
+
+- [ ] An AWS account with admin/PowerUser permissions
+- [ ] Ability to create EC2, S3, VPC, Security Groups, KMS, CloudWatch, and DataSync resources
+- [ ] A key pair created in ap-south-1 (or create one during the lab)
+- [ ] AWS CLI installed locally or CloudShell open (for the AMI lookup step)
+- [ ] Browser with AWS Console access, logged into ap-south-1
+
+> 💡 **Demo Tip:** Open two browser windows — one for the Console, one for CloudShell/Terminal. This makes it easy to show CLI commands alongside console navigation.
+
+---
+
+## Phase 1 — Networking (≈ 5 min)
+
+### 1.1 Confirm or Create a VPC
+
+1. Go to **VPC Console → Your VPCs**
+2. If you already have a default VPC with a public subnet, note its **VPC ID** and **Subnet ID**
+3. If not, create one:
+   - **VPCs → Create VPC**
+   - Name: `datasync-lab-vpc`
+   - IPv4 CIDR: `10.0.0.0/16`
+   - Select **Create VPC only** (we'll add subnets manually)
+   - Then create a **public subnet**: CIDR `10.0.1.0/24`, Availability Zone `ap-south-1a`
+   - Attach an **Internet Gateway** to the VPC and route table
+
+### 1.2 Create the Security Group
+
+1. **VPC Console → Security Groups → Create Security Group**
+2. Name: `datasync-lab-sg`
+3. Description: `Security group for DataSync lab`
+4. VPC: select your lab VPC
+5. Add inbound rules:
+
+| Type | Protocol | Port | Source | Purpose |
+|---|---|---|---|---|
+| SSH | TCP | 22 | My IP | SSH access to EC2 instances |
+| NFS | TCP | 2049 | `datasync-lab-sg` (self) | NFS data transfer (agent ↔ server) |
+| NFS | UDP | 2049 | `datasync-lab-sg` (self) | NFS data transfer (UDP variant) |
+| Custom TCP | TCP | 80 | My IP | Temporary — for agent activation key fetch |
+| All Traffic | All | All | `datasync-lab-sg` (self) | Simplifies lab communication |
+
+6. Click **Create security group**
+7. **Note the Security Group ID** (e.g., `sg-0abc123...`)
+
+> ✅ **Verification:** You should see the security group listed under your VPC's security groups with all 5 inbound rules.
+
+---
+
+## Phase 2 — Launch the NFS Server EC2 (≈ 5 min)
+
+This EC2 instance simulates your on-premises NFS file server.
+
+### 2.1 Launch the Instance
+
+1. **EC2 Console → Instances → Launch Instance**
+2. Configure as follows:
+
+| Setting | Value |
+|---|---|
+| Name | `nfs-server` |
+| AMI | **Amazon Linux 2023** (latest) |
+| Instance Type | `t3.medium` |
+| Key Pair | Select or create `datasync-lab-key` |
+| Network Settings | VPC: your lab VPC, Subnet: your public subnet |
+| Auto-assign Public IP | **Enable** |
+| Security Group | Select `datasync-lab-sg` |
+| Storage | 20 GB gp3 (default is fine) |
+
+3. Click **Launch Instance**
+4. Wait until status shows **Running** and **2/2 checks passed** (~2 min)
+
+### 2.2 Configure the NFS Export
+
+1. Select the `nfs-server` instance → click **Connect** → **EC2 Instance Connect** → **Connect**
+2. Run the following commands:
+
+```bash
+# Install NFS server packages
+sudo dnf install -y nfs-utils
+
+# Create the export directory
+sudo mkdir -p /export/engineering-docs
+sudo chmod 777 /export/engineering-docs
+
+# Create 20 sample test files
+sudo bash -c 'for i in $(seq 1 20); do echo "Sample CAD file $i" > /export/engineering-docs/drawing-$i.txt; done'
+
+# Verify files were created
+ls -la /export/engineering-docs/ | wc -l
+# Expected output: 23  (20 files + . + .. + total line)
+```
+
+3. Configure the NFS export:
+
+```bash
+# Add export entry
+sudo bash -c 'echo "/export/engineering-docs *(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports'
+
+# Apply exports
+sudo exportfs -ra
+
+# Enable and start NFS server
+sudo systemctl enable --now nfs-server
+
+# Verify NFS is running
+sudo systemctl status nfs-server --no-pager
+# Expected: active (running)
+
+# Verify export is visible
+sudo exportfs -v
+# Expected: /export/engineering-docs  <world>
+```
+
+4. **Note the Private IP** of `nfs-server`:
+
+```bash
+hostname -I
+# Example output: 10.0.1.50
+```
+
+> ✅ **Verification:** You should see the NFS server running and the export path visible via `exportfs -v`. The private IP is your **Source NFS server address** for DataSync.
+
+> 💡 **Demo Talking Point:** "This EC2 instance is standing in for our real on-prem NFS server. In production, the DataSync Agent would be deployed physically close to this server to minimize latency."
+
+---
+
+## Phase 3 — Get the DataSync Agent AMI (≈ 2 min)
+
+### 3.1 Look Up the AMI ID
+
+1. Open **AWS CloudShell** (click the terminal icon in the top-right of the Console)
+2. CloudShell auto-opens in your current region. Confirm it's `ap-south-1`:
+
+```bash
+aws configure get region
+# Expected: ap-south-1
+```
+
+3. Retrieve the DataSync Agent AMI ID:
+
+**For Basic mode (recommended for this lab):**
+```bash
+aws ssm get-parameter \
+  --name /aws/service/datasync/ami \
+  --region ap-south-1 \
+  --query Parameter.Value \
+  --output text
+```
+
+**For Enhanced mode (optional, if you want to try it):**
+```bash
+aws ssm get-parameter \
+  --name /aws/service/datasync/ami/v3 \
+  --region ap-south-1 \
+  --query Parameter.Value \
+  --output text
+```
+
+4. **Copy the AMI ID** (e.g., `ami-0a1b2c3d4e5f6789a`) — you'll need it in the next step.
+
+> ✅ **Verification:** You should get a valid AMI ID string back. If you get an error, check that CloudShell is in `ap-south-1` and that your IAM user has `ssm:GetParameter` permissions.
+
+---
+
+## Phase 4 — Launch the DataSync Agent EC2 (≈ 5 min)
+
+### 4.1 Launch the Agent Instance
 
 1. **EC2 Console → Launch Instance**
-2. Name: `nfs-server`
-3. AMI: **Amazon Linux 2023**
-4. Instance type: `t3.medium`
-5. Key pair: select or create one
-6. Network: your lab VPC, public subnet, **Auto-assign public IP: Enable**
-7. Security group: `datasync-lab-sg`
-8. Storage: 20 GB gp3 (this simulates the NFS-exported volume)
-9. Launch the instance and wait for it to reach **Running**
+2. Use the URL builder for the DataSync AMI:
+
+```
+https://console.aws.amazon.com/ec2/v2/home?region=ap-south-1#LaunchInstanceWizard:ami=<YOUR_AMI_ID>
+```
+
+Replace `<YOUR_AMI_ID>` with the AMI from Step 3. Paste this URL in your browser.
+
+3. Configure the instance:
+
+| Setting | Value |
+|---|---|
+| Name | `datasync-agent` |
+| AMI | Pre-filled with DataSync Agent AMI |
+| Instance Type | `m5.2xlarge` (Basic mode) |
+| Key Pair | Same as `nfs-server` |
+| Network Settings → VPC/Subnet | Same as `nfs-server` |
+| Auto-assign Public IP | **Enable** |
+| Security Group | `datasync-lab-sg` |
+| Storage | 50 GB gp3 (DataSync needs space for its working directory) |
+
+4. Click **Launch Instance**
+5. Wait for status **Running** (~2 min)
+
+### 4.2 Verify Port 80 is Reachable
+
+The DataSync Agent listens on port 80 for activation. From your local machine:
+
+```bash
+# Replace with the public IP of datasync-agent
+curl -I http://<PUBLIC_IP_OF_AGENT>:80
+# Expected: HTTP/1.1 200 OK (or 403/401 — any response means port is open)
+```
+
+> ✅ **Verification:** You get an HTTP response from the agent's public IP on port 80. If not, double-check the security group has TCP 80 open from your IP.
+
+> 💡 **Demo Talking Point:** "The DataSync Agent is a lightweight VM image that AWS publishes. In production, you'd deploy it as a VMware/KVM VM on your physical hardware. Here we run it on EC2 for the lab."
 
 ---
 
-## Step 3 — Configure the NFS export
+## Phase 5 — Activate the DataSync Agent (≈ 3 min)
 
-1. Connect to `nfs-server` via **EC2 Instance Connect** (Console → Connect) or SSH.
-2. Install and start the NFS server:
-   ```
-   sudo dnf install -y nfs-utils
-   sudo mkdir -p /export/engineering-docs
-   sudo chmod 777 /export/engineering-docs
-   ```
-3. Create some sample test files:
-   ```
-   sudo bash -c 'for i in $(seq 1 20); do echo "Sample CAD file $i" > /export/engineering-docs/drawing-$i.txt; done'
-   ```
-4. Configure the export in `/etc/exports`:
-   ```
-   sudo bash -c 'echo "/export/engineering-docs *(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports'
-   sudo exportfs -ra
-   sudo systemctl enable --now nfs-server
-   ```
-5. Note the **private IP** of `nfs-server` (used as the DataSync source location).
+### 5.1 Create the Agent in the Console
 
----
+1. Go to **DataSync Console → Agents → Create agent**
+2. Configure:
 
-## Step 4 — Get the DataSync Agent AMI ID
+| Setting | Value |
+|---|---|
+| Service endpoint | **Public service endpoints in ap-south-1** |
+| Activation key | **Automatically get the activation key from your agent** |
+| Agent address | Public IP of `datasync-agent` instance |
+| Agent name | `nfs-migration-agent` |
 
-Unlike VMware/KVM/Hyper-V (where you download an image file from the console), the **EC2 agent is launched from an AWS-published AMI**, which you look up via AWS CLI or CloudShell:
+3. Click **Create agent**
+4. The agent may briefly show **OFFLINE** — this is normal. Wait 1–2 minutes for it to transition to **ONLINE**
 
-1. Open **AWS CloudShell** (or a terminal with AWS CLI configured) in the same region as your lab (ap-south-1).
-2. Run, for a **Basic mode** agent:
-   ```
-   aws ssm get-parameter --name /aws/service/datasync/ami --region ap-south-1
-   ```
-   or for an **Enhanced mode** agent:
-   ```
-   aws ssm get-parameter --name /aws/service/datasync/ami/v3 --region ap-south-1
-   ```
-3. Note the `Value` field — this is the AMI ID, e.g. `ami-0123456789abcdef0`.
+> ✅ **Verification:** Agent status shows **ONLINE** with a green indicator.
+
+> ⚠️ **Troubleshooting:**
+> - If activation fails: confirm port 80 is open in the security group, confirm the agent instance is running, and confirm you're using the public IP (not private)
+> - Alternative: if "Get key" doesn't work, SSH into the agent instance and run `sudo cat /etc/datasync/activation-key` to get the key manually, then select **Manually enter activation key**
 
 ---
 
-## Step 5 — Launch the Agent EC2 Instance
-
-1. Build this URL, substituting your region and the AMI ID from Step 4:
-   ```
-   https://console.aws.amazon.com/ec2/v2/home?region=ap-south-1#LaunchInstanceWizard:ami=ami-0123456789abcdef0
-   ```
-2. Paste it into your browser — this opens the EC2 launch wizard pre-filled with the DataSync AMI.
-3. Name: `datasync-agent`
-4. Instance type: `m5.2xlarge` (Basic mode) or `m6a.2xlarge` (Enhanced mode) — 2xlarge is the minimum supported size
-5. Key pair: select one
-6. Network settings → Edit:
-   - VPC/subnet: same as `nfs-server`
-   - Auto-assign public IP: **Enable** (needed for this lab's activation approach)
-   - Security group: `datasync-lab-sg`, plus an inbound rule allowing **TCP 80 from your own IP** (required temporarily so your browser can fetch the activation key — DataSync closes this port automatically once activation completes)
-7. Launch the instance, wait for **Running**, and note its **public IP address**.
-
----
-
-## Step 6 — Activate the Agent
-
-1. **DataSync Console → Agents → Create agent**
-2. Under **Service endpoint**, choose **Public service endpoints in your current AWS Region** (simplest option for this lab; VPC endpoints are used for private-only setups)
-3. Under **Activation key**, choose **Automatically get the activation key from your agent**
-4. For **Agent address**, enter the `datasync-agent` instance's public IP, then click **Get key**
-   - This works because your browser reaches the agent on port 80, which you opened in Step 5.
-5. Agent name: `nfs-migration-agent`
-6. Click **Create agent**
-
-> Immediately after creation the agent may briefly show **OFFLINE** — this is expected and it should move to **ONLINE** within a minute or two.
-
-> **If activation fails:** confirm your browser can reach the agent's public IP on port 80 (check the security group rule), or use the alternative "manually enter activation key" option by retrieving the key from the agent's local console instead.
-
----
-
-## Step 7 — Create the Source Location (NFS)
+## Phase 6 — Create Source Location (NFS) (≈ 3 min)
 
 1. **DataSync Console → Locations → Create location**
-2. Location type: **NFS**
-3. Agent: select `nfs-migration-agent`
-4. NFS server: the **private IP** of `nfs-server`
-5. Mount path: `/export/engineering-docs`
-6. Click **Create location**
+2. Configure:
+
+| Setting | Value |
+|---|---|
+| Location type | **NFS** |
+| Agent | `nfs-migration-agent` |
+| NFS server | **Private IP** of `nfs-server` (from Phase 2) |
+| Mount path | `/export/engineering-docs` |
+| Mount options | Leave defaults |
+
+3. Click **Create location**
+4. Wait for creation to complete
+
+> ✅ **Verification:** Location appears in the list with status **Available**.
 
 ---
 
-## Step 8 — Create the Destination Location (S3)
+## Phase 7 — Create Destination Location (S3) (≈ 5 min)
 
-1. First, create the destination bucket: **S3 Console → Create bucket**
-   - Name: `brightwave-engineering-docs-<your-account-id>`
-   - Enable **Versioning**
-   - Encryption: **SSE-KMS**, choose or create a customer-managed key
-2. Back in **DataSync Console → Locations → Create location**
-3. Location type: **S3**
-4. S3 bucket: select the bucket you just created
-5. Folder: `/nfs-migration/`
-6. IAM role: let DataSync **auto-create** the role (grants least-privilege S3 access)
-7. Click **Create location**
+### 7.1 Create the S3 Bucket
+
+1. **S3 Console → Create bucket**
+2. Configure:
+
+| Setting | Value |
+|---|---|
+| Bucket name | `brightwave-engineering-docs-<YOUR_ACCOUNT_ID>` (replace with your 12-digit account ID) |
+| Region | ap-south-1 (Mumbai) |
+| Object Ownership | ACLs disabled (recommended) |
+| Block Public Access | Keep all checked (block public) |
+| Versioning | **Enable** |
+| Encryption | **SSE-KMS**, create a new key or use the default AWS-managed key |
+| Bucket policy | Leave empty |
+
+3. Click **Create bucket**
+
+### 7.2 Create the S3 DataSync Location
+
+1. **DataSync Console → Locations → Create location**
+2. Configure:
+
+| Setting | Value |
+|---|---|
+| Location type | **S3** |
+| S3 bucket | Select `brightwave-engineering-docs-<ACCOUNT_ID>` |
+| Folder | `/nfs-migration/` |
+| Storage class | S3 Standard (default) |
+| Access tier | None |
+| IAM role | **Create new role** (DataSync auto-creates a least-privilege role) |
+
+3. Click **Create location**
+
+> ✅ **Verification:** Both locations (NFS and S3) appear in the Locations list with status **Available**.
 
 ---
 
-## Step 9 — Create the Task
+## Phase 8 — Create the DataSync Task (≈ 5 min)
+
+### 8.1 Configure the Task
 
 1. **DataSync Console → Tasks → Create task**
-2. Source location: the NFS location from Step 7
-3. Destination location: the S3 location from Step 8
-4. **Settings:**
-   - Verify data: **Verify only data transferred**
-   - Metadata: preserve ownership, permissions, timestamps
-   - Filters: none (transfer everything for this lab)
-   - Schedule: **Run on demand** for the first test run
-   - Task logging: send logs to CloudWatch Logs (create/select a log group)
-5. Review and **Create task**
+2. Configure:
+
+| Setting | Value |
+|---|---|
+| Task name | `nfs-to-s3-nightly-sync` |
+| Source location | NFS location from Phase 6 |
+| Destination location | S3 location from Phase 7 |
+| Task mode | **Basic** (matches the agent mode from Phase 4) |
+| Transfer mode | **Transfer only data that has changed** |
+| Verification mode | **Verify only transferred data (recommended)** |
+| Overwrite files | **Always** |
+| Preserve metadata | ✅ Ownership, ✅ POSIX permissions, ✅ Timestamps |
+| Filters | None (transfer everything) |
+| Schedule | **Unscheduled** (we'll add one in Phase 12) |
+| Task logging | **CloudWatch Logs** → Create log group `/aws/datasync` |
+
+3. Click **Create task**
+4. Wait for task status to show **Available** (refresh if needed)
+
+> ✅ **Verification:** Task appears in the Tasks list with status **Available**.
+
+> 💡 **Demo Talking Point:** "Notice 'Transfer only data that has changed' — this is the key to incremental sync. DataSync uses checksums to detect what's actually changed, not just file timestamps."
 
 ---
 
-## Step 10 — Run the Initial Transfer
+## Phase 9 — Run the Initial Transfer (≈ 5 min)
 
-1. Open the task, click **Start → Start with defaults**
-2. Watch the **Task Execution** detail page — it shows files transferred, bytes transferred, duration, and throughput in real time.
-3. Once status shows **SUCCESS**, verify in the S3 console that all 20 sample files landed under `/nfs-migration/`.
+### 9.1 Start the Task
+
+1. Click on the task `nfs-to-s3-nightly-sync`
+2. Click **Start** → **Start with defaults**
+3. The task enters **Running** state
+4. Click **See execution details** to watch real-time progress
+
+### 9.2 Monitor the Transfer
+
+Watch for these in the execution details:
+- **Files transferred:** should show 20
+- **Bytes transferred:** ~400 bytes (20 small text files)
+- **Duration:** should complete in under a minute
+- **Status:** should show **SUCCESS**
+
+### 9.3 Verify in S3
+
+1. Go to **S3 Console** → open `brightwave-engineering-docs-<ACCOUNT_ID>`
+2. Navigate to the `/nfs-migration/` prefix
+3. Confirm all 20 files (`drawing-1.txt` through `drawing-20.txt`) are present
+
+```bash
+# Optional: verify via CLI
+aws s3 ls s3://brightwave-engineering-docs-<ACCOUNT_ID>/nfs-migration/ --region ap-south-1
+# Expected: 20 objects listed
+```
+
+> ✅ **Verification:** All 20 files landed in S3 under `/nfs-migration/`. Execution shows SUCCESS with 20 files transferred.
+
+---
+
+## Phase 10 — Test Incremental Sync (≈ 3 min)
+
+This is the most important verification step — it proves DataSync only transfers changes.
+
+### 10.1 Modify the NFS Source
+
+1. SSH back into `nfs-server` (or use EC2 Instance Connect)
+2. Make changes:
+
+```bash
+# Modify an existing file
+sudo bash -c 'echo "New revision - updated content" > /export/engineering-docs/drawing-1.txt'
+
+# Add a brand new file
+sudo bash -c 'echo "Brand new file added after initial sync" > /export/engineering-docs/drawing-21.txt'
+
+# Verify changes
+ls -la /export/engineering-docs/ | wc -l
+# Expected: 23  (21 files + . + .. + total line)
+```
+
+### 10.2 Run the Task Again
+
+1. Go to **DataSync Console → Tasks** → select `nfs-to-s3-nightly-sync` → **Start** → **Start with defaults**
+2. Watch execution details
+
+### 10.3 Verify Incremental Behavior
+
+- **Expected:** Only **2 files** transferred (drawing-1.txt was modified, drawing-21.txt is new)
+- **NOT expected:** All 21 files transferred again
+
+```bash
+# Verify in S3
+aws s3 ls s3://brightwave-engineering-docs-<ACCOUNT_ID>/nfs-migration/ --region ap-south-1
+# Expected: 21 objects (20 original + 1 new)
+
+# Verify the modified file content
+aws s3 cp s3://brightwave-engineering-docs-<ACCOUNT_ID>/nfs-migration/drawing-1.txt - --region ap-south-1
+# Expected output: "New revision - updated content"
+```
+
+> ✅ **Verification:** Execution shows 2 files transferred, not 21. This confirms incremental sync is working correctly.
+
+> 💡 **Demo Talking Point:** "This is the power of DataSync — it uses content-level checksums to detect actual changes. Even though we ran the full task again, only the 2 changed files moved. For a dataset with millions of files where only a handful change nightly, this saves enormous time and cost."
 
 ---
 
-## Step 11 — Test Incremental Sync
+## Phase 11 — Schedule Nightly Syncs (≈ 3 min)
 
-1. Back on `nfs-server`, add a new file and modify an existing one:
-   ```
-   sudo bash -c 'echo "New revision" > /export/engineering-docs/drawing-1.txt'
-   sudo bash -c 'echo "Brand new file" > /export/engineering-docs/drawing-21.txt'
-   ```
-2. Run the task again from the console.
-3. Confirm the execution log shows only **2 files transferred**, not all 21 — this proves incremental sync is working.
+1. **DataSync Console → Tasks** → select `nfs-to-s3-nightly-sync` → **Edit**
+2. Under **Schedule**, click **Edit**
+3. Choose **Recurring schedule**
+4. Enter cron expression:
+
+```
+0 2 * * ? *
+```
+
+This runs the task at **2:00 AM UTC daily** (which is 7:30 AM IST in ap-south-1).
+
+5. Click **Save**
+6. The task now shows a schedule icon and will execute automatically
+
+> ✅ **Verification:** The task's schedule column shows the cron expression. The next scheduled run time is visible.
+
+> 💡 **Demo Talking Point:** "In production, you'd typically run this during off-peak hours. The cron expression `0 2 * * ? *` means every day at 2 AM UTC. DataSync handles the rest — it creates a new execution each time."
+
+---
+
+## Phase 12 — Monitor & Audit (≈ 3 min)
+
+### 12.1 CloudWatch Logs
+
+1. **CloudWatch Console → Log groups** → find `/aws/datasync`
+2. Open the log stream for the latest task execution
+3. Confirm you see per-file transfer entries
+
+### 12.2 CloudWatch Metrics
+
+1. **CloudWatch Console → Metrics** → select **DataSync** namespace
+2. Look for these metrics:
+   - `BytesTransferred`
+   - `FilesTransferred`
+   - `FilesVerified`
+   - `TaskExecutionDuration`
+
+### 12.3 CloudTrail (Audit Trail)
+
+1. **CloudTrail Console → Event history**
+2. Event source: filter by `datasync.amazonaws.com`
+3. You should see events like:
+   - `CreateTask`
+   - `StartTaskExecution`
+   - `CreateLocationNfs`
+   - `CreateLocationS3`
+
+> ✅ **Verification:** You can see logs, metrics, and audit events all populated from the DataSync operations.
 
 ---
 
-## Step 12 — Schedule Nightly Syncs
+## Phase 13 — Cleanup (≈ 5 min)
 
-1. Open the task → **Edit**
-2. Under **Schedule**, choose a recurring schedule (e.g., cron `0 2 * * ? *` for 2:00 AM daily)
-3. Save — the task will now run automatically every night.
+> ⚠️ **Important:** Delete in this exact order to avoid dependency errors.
+
+### Step-by-step cleanup:
+
+| Order | Action | Console Path |
+|---|---|---|
+| 1 | Delete the DataSync task | DataSync → Tasks → Select task → Delete |
+| 2 | Delete the NFS location | DataSync → Locations → Select NFS → Delete |
+| 3 | Delete the S3 location | DataSync → Locations → Select S3 → Delete |
+| 4 | Delete the DataSync agent | DataSync → Agents → Select agent → Delete agent |
+| 5 | Terminate the agent EC2 | EC2 → Instances → Select `datasync-agent` → Instance state → Terminate |
+| 6 | Terminate the NFS server EC2 | EC2 → Instances → Select `nfs-server` → Instance state → Terminate |
+| 7 | Empty and delete the S3 bucket | S3 → Select bucket → Empty → Delete bucket |
+| 8 | Delete the KMS key (if custom) | KMS → Customer managed keys → Select key → Schedule deletion |
+| 9 | Delete the CloudWatch log group | CloudWatch → Log groups → `/aws/datasync` → Delete |
+| 10 | Delete the security group | VPC → Security Groups → `datasync-lab-sg` → Delete |
+| 11 | Delete the VPC (if created for lab) | VPC → Your VPCs → Select VPC → Delete VPC |
+
+> 💡 **Demo Talking Point:** "Always clean up lab resources. The most common mistake is forgetting to empty versioned S3 buckets before deletion — you must delete all object versions first."
 
 ---
 
-## Step 13 — Verify Monitoring & Audit
+## Quick Reference: Expected Results Summary
 
-1. **CloudWatch → Log groups** → open the DataSync log group → confirm per-file transfer logs appear.
-2. **CloudWatch → Metrics → DataSync** → check `BytesTransferred`, `FilesTransferred`, `FilesVerified`.
-3. **CloudTrail → Event history** → filter by event source `datasync.amazonaws.com` → confirm `CreateTask`, `StartTaskExecution` events are logged.
+| Step | Expected Result |
+|---|---|
+| NFS server running | `systemctl status nfs-server` → active (running) |
+| 20 test files created | `ls /export/engineering-docs/` shows 20 files |
+| Agent ONLINE | DataSync Console → Agents → green indicator |
+| Source location created | Available in Locations list |
+| Destination location created | Available in Locations list |
+| Initial transfer | 20 files, ~400 bytes, status SUCCESS |
+| S3 verification | 20 objects under `/nfs-migration/` |
+| Incremental sync | Only 2 files transferred (not 21) |
+| Scheduled task | Cron `0 2 * * ? *` visible on task |
+| CloudWatch logs | Per-file entries in `/aws/datasync` |
+| CloudTrail events | `CreateTask`, `StartTaskExecution` visible |
 
 ---
+
+## Troubleshooting Quick Reference
+
+| Problem | Likely Cause | Fix |
+|---|---|---|
+| Agent stays OFFLINE after creation | Port 80 blocked by SG or agent not running | Check SG has TCP 80 from your IP; verify agent instance is running |
+| NFS location creation fails | Agent can't reach NFS server | Confirm both instances are in the same VPC/subnet; verify SG allows NFS (2049) self-referencing |
+| Task shows "Error" on start | IAM role missing or S3 bucket doesn't exist | Let DataSync auto-create the role; verify bucket exists |
+| Incremental sync transfers all files | Source files were modified during transfer or checksum mismatch | Re-run task; check if files are being actively written |
+| S3 bucket deletion fails | Versioning enabled, objects still exist | Empty bucket including all versions first |
+| Activation key fetch fails | Browser can't reach agent on port 80 | Test with `curl http://<agent-public-ip>:80` from your local machine |
+
+---
+
+## Demo Script (If Presenting)
+
+| Time | What to Show | Talking Point |
+|---|---|---|
+| 0–5 min | VPC + SG setup | "We're creating isolated networking for the lab" |
+| 5–10 min | NFS server EC2 launch | "This simulates our on-prem file server" |
+| 10–12 min | NFS export + test files | "20 sample engineering documents ready to migrate" |
+| 12–15 min | Agent AMI lookup + EC2 launch | "The DataSync Agent runs as a lightweight VM" |
+| 15–18 min | Agent activation | "The agent registers with the DataSync service" |
+| 18–22 min | Source + destination locations | "Pointing DataSync at the NFS source and S3 destination" |
+| 22–25 min | Task creation | "Configured for incremental, verified transfers" |
+| 25–30 min | Initial transfer run | "Watch all 20 files move in real time" |
+| 30–33 min | Incremental sync test | "Only 2 files transfer — the power of change detection" |
+| 33–35 min | Schedule setup | "Nightly automated syncs, no manual intervention" |
+| 35–40 min | Monitoring (CloudWatch + CloudTrail) | "Full visibility and audit trail" |
+| 40–45 min | Cleanup | "Always clean up lab resources" |
+
+---
+
+## Notes for Instructors / Team Leads
+
+- **Pre-requisites to verify before lab:** Confirm all participants have AWS account access with sufficient permissions, and that the `ap-south-1` region is enabled in their account.
+- **Time management:** If short on time, skip Enhanced mode and VPC endpoint setup. Focus on Phases 1–10 for the core experience.
+- **Cost optimization:** For teams, consider using Spot Instances for the NFS server and Agent EC2 (they're short-lived). The m5.2xlarge can also be down-sized if cost is a concern (but the minimum is 2xlarge).
+- **Extending the lab:** Advanced learners can try:
+  - Adding **S3 Transfer Acceleration** to the destination
+  - Configuring **VPC endpoints** for the DataSync service (instead of public endpoints)
+  - Testing with an **SMB source** instead of NFS
+  - Adding **filter rules** (e.g., only transfer `*.txt` files, or exclude specific prefixes)
+  - Testing **bandwidth limits** on the task to simulate constrained network links
+
+---
+
+## Production Architecture Notes (For Discussion)
+
+| Lab Scenario | Production Reality |
+|---|---|
+| EC2 instance hosts NFS | Physical NFS server in your datacenter |
+| EC2 instance hosts DataSync Agent | VMware/KVM/Hyper-V VM or physical server onsite |
+| Public internet for DataSync service endpoints | VPC endpoints (PrivateLink) for security and performance |
+| t3.medium NFS server | Enterprise NAS/SAN with 10Gb+ networking |
+| Basic mode agent | Enhanced mode agent for multi-threaded transfers |
+| Manual cleanup | Infrastructure-as-Code (Terraform/CloudFormation) with automated teardown |
+| Single task | Multiple tasks with different filters, schedules, and destinations |
+
+---
+
+*Lab created for hands-on practice with AWS DataSync. Always clean up resources after completion to avoid unexpected AWS charges.*
+
+**Disclaimer:** This lab uses EC2 instances to simulate on-premises infrastructure. AWS recommends deploying the DataSync Agent as close to the source data as possible in production environments (i.e., on-premises, not in EC2) to minimize network latency.
