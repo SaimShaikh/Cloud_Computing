@@ -10,9 +10,10 @@ You are a DevOps/Cloud Engineer at a company that has years of file data sitting
 - **Incremental** (only new/changed files should re-transfer, not the whole dataset every time)
 - **Verified** (data integrity must be provable, not assumed)
 
-Since a real on-prem data center isn't available for this lab, we simulate "on-prem" using an **EC2 instance running an NFS server**. The lab uses **AWS DataSync** — the AWS-native data transfer service purpose-built for this exact use case — to move data from the NFS share into S3.
+Since a real on-prem data center isn't available for this lab, we simulate "on-prem" using an **EC2 instance running an NFS server**, inside a **custom VPC you build from scratch** (not the default VPC — so you get the full networking picture). The lab uses **AWS DataSync** — the AWS-native data transfer service purpose-built for this exact use case — to move data from the NFS share into S3.
 
 By the end of this lab, you will understand:
+- How to build a VPC with a public subnet from scratch (Internet Gateway, route table, subnet association)
 - How DataSync Agents bridge on-prem (or EC2-simulated on-prem) storage to AWS
 - How NFS locations and S3 locations are defined
 - How DataSync performs **incremental, checksum-verified transfers**
@@ -22,11 +23,12 @@ By the end of this lab, you will understand:
 ---
 
 ## 🏗️ Architecture Diagram
-
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/c3c41880-893f-4de8-b3e6-94f10341f327" />
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/2a0fcc95-911d-433b-bf36-65bf5a450928" />
 
 
 **Key architectural point:** DataSync doesn't move data through your laptop or the console. The **Agent** (running as an EC2 instance here) reads data directly off the NFS share and pushes it to S3 over HTTPS. The console only orchestrates — it is not in the data path.
+
+**Key networking point:** S3 is not "inside" the VPC — it's reached over the internet via the Internet Gateway (or, in a stricter production setup, via a VPC Gateway Endpoint for S3, mentioned in the troubleshooting/production notes below). Both EC2 instances need a route to the internet to do their jobs, which is why the subnet needs an Internet Gateway and a public route.
 
 **Key security point:** All the traffic the agent initiates (to the NFS server on 2049, and to AWS on 443) is **outbound from the agent** — so the agent's own security group barely needs any inbound rules at all. The only inbound rule the agent needs is port 80, and only temporarily, for activation.
 
@@ -36,9 +38,8 @@ By the end of this lab, you will understand:
 
 | Requirement | Detail |
 |---|---|
-| AWS Account | With permissions for EC2, S3, DataSync, IAM |
+| AWS Account | With permissions for VPC, EC2, S3, DataSync, IAM |
 | Region | Pick one region and use it for everything (e.g. `ap-south-1`) |
-| VPC | Default VPC is fine, must have a public subnet |
 | Budget awareness | EC2 (t2.micro + m5.large), S3 storage, DataSync per-GB fee all incur cost — see Cost Notes section |
 | SSH client | Terminal / PuTTY to connect to the "on-prem" EC2 |
 
@@ -83,28 +84,97 @@ DataSync compares **file metadata** — size, modification timestamp, and (depen
 
 ---
 
-## 🧭 PHASE 1 — Create the S3 Bucket (Destination)
+## 🧭 PHASE 1 — Build the VPC from Scratch
+
+We build a dedicated VPC instead of using the default one so you see every networking piece that has to exist for a public-subnet EC2 workload to function: the VPC itself, a subnet, an Internet Gateway, and a route table tying them together.
+
+### Step 1a — Create the VPC
+1. **AWS Console → search VPC → VPC Dashboard**
+2. Click **Create VPC**
+3. Choose **VPC only** (not "VPC and more" — we're building each piece manually so nothing is skipped or hidden)
+4. Fill in:
+   - **Name tag:** `datasync-lab-vpc`
+   - **IPv4 CIDR block:** `10.0.0.0/16`
+   - **IPv6 CIDR block:** No IPv6
+   - **Tenancy:** Default
+5. Click **Create VPC**
+
+✅ **Checkpoint:** `datasync-lab-vpc` appears in your VPC list with state **Available**.
+
+### Step 1b — Create a Public Subnet
+1. Left sidebar → **Subnets → Create subnet**
+2. **VPC ID:** select `datasync-lab-vpc`
+3. Fill in:
+   - **Subnet name:** `datasync-public-subnet`
+   - **Availability Zone:** pick any AZ in your region (e.g. `ap-south-1a`)
+   - **IPv4 CIDR block:** `10.0.1.0/24`
+4. Click **Create subnet**
+
+### Step 1c — Enable Auto-Assign Public IP on the subnet
+By default, new subnets do **not** auto-assign public IPs, which means you'd have to remember to manually enable "Auto-assign public IP" every time you launch an instance. Set it at the subnet level once, so you don't have to think about it again:
+1. Select `datasync-public-subnet` → **Actions → Edit subnet settings**
+2. Check **Enable auto-assign public IPv4 address**
+3. **Save**
+
+✅ **Checkpoint:** Subnet exists inside the VPC, with auto-assign public IP turned on.
+
+### Step 1d — Create and Attach an Internet Gateway
+A subnet isn't "public" just because it has public IPs available — it needs an actual route to the internet, which requires an Internet Gateway (IGW).
+
+1. Left sidebar → **Internet Gateways → Create internet gateway**
+2. **Name tag:** `datasync-lab-igw`
+3. Click **Create internet gateway**
+4. It's created in a **Detached** state — select it → **Actions → Attach to VPC**
+5. Choose `datasync-lab-vpc` → **Attach internet gateway**
+
+✅ **Checkpoint:** IGW state shows **Attached** to `datasync-lab-vpc`.
+
+### Step 1e — Create a Route Table and Route Traffic to the Internet Gateway
+The IGW being attached to the VPC isn't enough on its own — the subnet's route table needs an explicit route telling it "send anything not destined for the VPC's local CIDR out through the IGW."
+
+1. Left sidebar → **Route Tables → Create route table**
+2. Fill in:
+   - **Name tag:** `datasync-public-rt`
+   - **VPC:** `datasync-lab-vpc`
+3. Click **Create route table**
+4. Select the new route table → **Routes tab → Edit routes**
+5. Click **Add route**:
+   - **Destination:** `0.0.0.0/0`
+   - **Target:** Internet Gateway → select `datasync-lab-igw`
+6. **Save changes**
+7. Now associate this route table with the subnet: **Subnet associations tab → Edit subnet associations**
+8. Check `datasync-public-subnet` → **Save associations**
+
+✅ **Checkpoint:** `datasync-public-rt` has a route `0.0.0.0/0 → datasync-lab-igw` and is associated with `datasync-public-subnet`. This is what makes the subnet genuinely "public" — instances launched here with a public IP can now actually reach, and be reached from, the internet.
+
+> **Don't skip this step.** This is the single most common reason a freshly built VPC's EC2 instances can't be SSH'd into or can't reach the internet — people create the subnet and the IGW but forget to wire the route table between them.
+
+---
+
+## 🧭 PHASE 2 — Create the S3 Bucket (Destination)
 
 1. Open the **AWS Console** → search **S3**
 2. Click **Create bucket**
 3. Fill in:
    - **Bucket name:** `datasync-demo-bucket-<yourname>` (must be globally unique — add initials/numbers if taken)
-   - **Region:** the same region you'll use for everything (e.g. `ap-south-1` — Mumbai)
+   - **Region:** the same region you used for the VPC (e.g. `ap-south-1` — Mumbai)
 4. Leave all other settings at default (Block Public Access **ON**, versioning off)
 5. Click **Create bucket**
 
 ✅ **Checkpoint:** Bucket appears in your S3 bucket list with 0 objects.
 
+> Note: S3 buckets are not created "inside" a VPC — they're a global/regional service reached over the network (via the IGW you just built, or a private VPC endpoint in a stricter setup). That's why this step doesn't ask you to pick a VPC.
+
 ---
 
-## 🧭 PHASE 2 — Create Security Groups (do this before launching any instance)
+## 🧭 PHASE 3 — Create Security Groups (do this before launching any instance)
 
 Creating both security groups **now, in the right order**, avoids having to edit rules later. `sg-nfs-server` needs to reference `sg-datasync-agent` as a traffic source, so the agent's SG must exist first.
 
-### Step 2a — Create `sg-datasync-agent` (no dependencies, create first)
+### Step 3a — Create `sg-datasync-agent` (no dependencies, create first)
 1. **EC2 console → Security Groups → Create security group**
 2. **Name:** `sg-datasync-agent`
-3. **VPC:** your lab VPC (same one you'll use for everything)
+3. **VPC:** `datasync-lab-vpc`
 4. **Inbound rules:**
 
    | Type | Port | Source | Purpose |
@@ -116,10 +186,10 @@ Creating both security groups **now, in the right order**, avoids having to edit
 
 > Why no inbound 443 or 2049 here: the agent only ever *initiates* those connections — it calls out to AWS and calls out to the NFS server. Neither requires an inbound rule on the agent's own SG.
 
-### Step 2b — Create `sg-nfs-server` (references the agent's SG)
+### Step 3b — Create `sg-nfs-server` (references the agent's SG)
 1. **Create security group** again
 2. **Name:** `sg-nfs-server`
-3. **VPC:** same VPC
+3. **VPC:** `datasync-lab-vpc`
 4. **Inbound rules:**
 
    | Type | Port | Source | Purpose |
@@ -136,7 +206,7 @@ Creating both security groups **now, in the right order**, avoids having to edit
 
 ---
 
-## 🧭 PHASE 3 — Launch EC2 (Simulated "On-Prem" NFS Server)
+## 🧭 PHASE 4 — Launch EC2 (Simulated "On-Prem" NFS Server)
 
 1. Go to **EC2 → Instances → Launch instance**
 2. Fill in:
@@ -144,9 +214,10 @@ Creating both security groups **now, in the right order**, avoids having to edit
    - **AMI:** Ubuntu Server 22.04 LTS
    - **Instance type:** `t2.micro` (Free Tier eligible)
    - **Key pair:** select an existing key pair or create a new one and download the `.pem`
-3. **Network settings:**
-   - **VPC/Subnet:** same VPC used for the security groups; a public subnet (needs a public IP so you can SSH in)
-   - **Auto-assign public IP:** Enable
+3. **Network settings** (click **Edit** to expand):
+   - **VPC:** `datasync-lab-vpc`
+   - **Subnet:** `datasync-public-subnet`
+   - **Auto-assign public IP:** Enable (should already default to Enable since you set that at the subnet level in Phase 1c, but confirm it here)
    - **Firewall (security groups):** choose **Select existing security group** → pick **`sg-nfs-server`**
 4. Click **Launch instance**
 5. Note the **Public IPv4 address** and **Private IPv4 address** — you'll need both later.
@@ -155,18 +226,18 @@ Creating both security groups **now, in the right order**, avoids having to edit
 
 ---
 
-## 🧭 PHASE 4 — Connect to EC2
+## 🧭 PHASE 5 — Connect to EC2
 
 ```bash
 chmod 400 your-key.pem
 ssh -i your-key.pem ubuntu@<PUBLIC-IP>
 ```
 
-✅ **Checkpoint:** You have a shell prompt like `ubuntu@ip-172-31-x-x:~$`.
+✅ **Checkpoint:** You have a shell prompt like `ubuntu@ip-10-0-1-x:~$`. If this hangs or times out, revisit Phase 1e (route table) and Phase 3b (SSH rule) before anything else — this is the connectivity chain that has to be right.
 
 ---
 
-## 🧭 PHASE 5 — Set Up the NFS Server
+## 🧭 PHASE 6 — Set Up the NFS Server
 
 ### Install NFS server software
 ```bash
@@ -229,7 +300,7 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
 
 ---
 
-## 🧭 PHASE 6 — Launch the DataSync Agent
+## 🧭 PHASE 7 — Launch the DataSync Agent
 
 1. Go to **AWS Console → DataSync**
 2. Left sidebar → **Agents → Create agent**
@@ -237,17 +308,17 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
    - Choose **Amazon EC2** as the hosting platform (deploys the agent as an EC2 instance running AWS's DataSync AMI)
 4. Fill in:
    - **Instance type:** `m5.large` (AWS-recommended minimum for the agent AMI — smaller types aren't offered because the agent needs the memory/network throughput headroom)
-   - **VPC:** same VPC as your NFS EC2 instance
-   - **Subnet:** the **public subnet** (the agent needs outbound internet access to reach the DataSync public service endpoint, and needs a public IP so the console can reach it on port 80 for activation)
+   - **VPC:** `datasync-lab-vpc`
+   - **Subnet:** `datasync-public-subnet` (the agent needs outbound internet access to reach the DataSync public service endpoint, and needs a public IP so the console can reach it on port 80 for activation)
    - **Auto-assign public IP:** Enable
-   - **Security group:** select the existing **`sg-datasync-agent`** (created in Phase 2 — do not create a new one here)
+   - **Security group:** select the existing **`sg-datasync-agent`** (created in Phase 3 — do not create a new one here)
 5. Click **Launch agent** (or **Next**, depending on console flow — this provisions the EC2-based agent instance)
 
-✅ **Checkpoint:** A new EC2 instance appears (agent), and the DataSync console shows an agent in "Not activated" state. No security group edits are needed — everything was already scoped correctly in Phase 2.
+✅ **Checkpoint:** A new EC2 instance appears (agent), and the DataSync console shows an agent in "Not activated" state. No security group or networking edits are needed — everything was already scoped correctly in Phases 1 and 3.
 
 ---
 
-## 🧭 PHASE 7 — Activate the Agent
+## 🧭 PHASE 8 — Activate the Agent
 
 1. Note the **Public IP** of the newly launched agent EC2 instance
 2. In a browser, go to:
@@ -260,27 +331,27 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
 5. Paste the activation key, give the agent a friendly name (e.g. `nfs-onprem-agent`)
 6. Click **Activate**
 
-✅ **Checkpoint:** Agent status in the console changes to **ONLINE**. AWS automatically closes off reliance on port 80 once activation completes — you can remove that inbound rule from `sg-datasync-agent` afterward if you want to tighten things further, though it's not required for the rest of this lab.
+✅ **Checkpoint:** Agent status in the console changes to **ONLINE**. AWS automatically stops relying on port 80 once activation completes — you can remove that inbound rule from `sg-datasync-agent` afterward if you want to tighten things further, though it's not required for the rest of this lab.
 
-> **If the activation page won't load:** it's almost always a security group issue — confirm port 80 is open from wherever your browser is connecting from (check "My IP" hasn't changed if you're on a different network than when the SG was created), and that the agent has a public IP with a route to the internet.
+> **If the activation page won't load:** it's almost always a security group or routing issue — confirm port 80 is open from wherever your browser is connecting from (check "My IP" hasn't changed if you're on a different network than when the SG was created), confirm the agent has a public IP, and confirm the route table from Phase 1e is correctly associated with the subnet.
 
 ---
 
-## 🧭 PHASE 8 — Create the Source Location (NFS)
+## 🧭 PHASE 9 — Create the Source Location (NFS)
 
 1. DataSync console → **Locations → Create location**
 2. Location type: **NFS**
 3. Fill in:
    - **NFS server:** the **private IP** of your "on-prem" EC2 (the agent talks to it inside the VPC — private IP is correct and more secure than routing over the public IP)
    - **Mount path:** `/data/shared`
-   - **Agents:** select the agent you activated in Phase 7
+   - **Agents:** select the agent you activated in Phase 8
 4. Click **Create location**
 
-✅ **Checkpoint:** Location status = **Available**. If this fails, it's almost always `sg-nfs-server` not allowing port 2049 from `sg-datasync-agent` — double check Phase 2b.
+✅ **Checkpoint:** Location status = **Available**. If this fails, it's almost always `sg-nfs-server` not allowing port 2049 from `sg-datasync-agent` — double check Phase 3b.
 
 ---
 
-## 🧭 PHASE 9 — Create the Destination Location (S3)
+## 🧭 PHASE 10 — Create the Destination Location (S3)
 
 1. **Create location → Amazon S3**
 2. Fill in:
@@ -294,7 +365,7 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
 
 ---
 
-## 🧭 PHASE 10 — Create the Task
+## 🧭 PHASE 11 — Create the Task
 
 1. **Tasks → Create task**
 2. **Source location:** select your NFS location
@@ -315,7 +386,7 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
 
 ---
 
-## 🧭 PHASE 11 — Run the Task
+## 🧭 PHASE 12 — Run the Task
 
 1. Select your task → click **Start**
 2. Choose **Start with defaults**
@@ -329,7 +400,7 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
 
 ---
 
-## 🧭 PHASE 12 — Verify in S3
+## 🧭 PHASE 13 — Verify in S3
 
 1. Go to **S3 → your bucket**
 2. Navigate into `/output/`
@@ -342,7 +413,7 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
 
 ---
 
-## 🧭 PHASE 13 — Test Incremental Sync (the core DataSync value proposition)
+## 🧭 PHASE 14 — Test Incremental Sync (the core DataSync value proposition)
 
 1. Back on the "on-prem" EC2:
    ```bash
@@ -360,11 +431,12 @@ This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in
 
 ## 🧠 What Just Happened (Plain-English Recap)
 
-1. DataSync's agent connected to your NFS export and enumerated files with their metadata (size, mtime).
-2. On the first run, it compared that metadata against an empty S3 destination → everything was "new" → full transfer.
-3. Data was streamed agent → AWS over HTTPS, landed in S3, and checksummed against the source to confirm integrity.
-4. On the second run, it re-scanned the source, compared metadata against what's now in S3, and found only `file2.txt` didn't have a matching destination object → transferred just that one file.
-5. This metadata-diff-then-checksum-verify pattern is what makes DataSync suitable for **ongoing, scheduled, production-grade sync** rather than a one-time copy tool.
+1. You built a VPC with a public subnet, wired an Internet Gateway into its route table, and launched two EC2 instances into it — one acting as an on-prem NFS server, one as the DataSync agent.
+2. DataSync's agent connected to your NFS export and enumerated files with their metadata (size, mtime).
+3. On the first run, it compared that metadata against an empty S3 destination → everything was "new" → full transfer.
+4. Data was streamed agent → AWS over HTTPS, landed in S3, and checksummed against the source to confirm integrity.
+5. On the second run, it re-scanned the source, compared metadata against what's now in S3, and found only `file2.txt` didn't have a matching destination object → transferred just that one file.
+6. This metadata-diff-then-checksum-verify pattern is what makes DataSync suitable for **ongoing, scheduled, production-grade sync** rather than a one-time copy tool.
 
 ---
 
@@ -379,10 +451,23 @@ Notice what's **not** here: no inbound 443 anywhere, no inbound 2049 on the agen
 
 ---
 
+## 🌐 VPC/Networking Summary (quick reference)
+
+| Component | Value |
+|---|---|
+| VPC | `datasync-lab-vpc` — `10.0.0.0/16` |
+| Subnet | `datasync-public-subnet` — `10.0.1.0/24`, auto-assign public IP enabled |
+| Internet Gateway | `datasync-lab-igw`, attached to `datasync-lab-vpc` |
+| Route Table | `datasync-public-rt` — route `0.0.0.0/0 → datasync-lab-igw`, associated with `datasync-public-subnet` |
+
+---
+
 ## ⚠️ Troubleshooting Reference
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
+| Can't SSH into the NFS EC2 at all (connection times out) | Route table not associated with the subnet, or IGW not attached | Revisit Phase 1d/1e — confirm the IGW shows "Attached" and the route table has the `0.0.0.0/0` route and is associated with `datasync-public-subnet` |
+| EC2 launches with no public IP | Auto-assign public IP wasn't enabled at the subnet level, and wasn't overridden at launch | Revisit Phase 1c, or explicitly enable it in the instance launch wizard's network settings |
 | NFS location creation fails / agent can't mount | `sg-nfs-server` not allowing port 2049 from `sg-datasync-agent` | Edit `sg-nfs-server` inbound rules, confirm the 2049 rule's source is the agent's security group ID, not an IP |
 | Agent stuck "Not activated" | Port 80 blocked on `sg-datasync-agent`, or no internet route | Check inbound 80 from your current IP (it changes across networks); confirm the agent's subnet has a route to an Internet Gateway |
 | Agent activation page won't load in browser | Agent has no public IP, or your IP isn't the one allowed in the SG | Confirm "Auto-assign public IP" was enabled at launch; re-check "My IP" hasn't changed since the SG rule was created |
@@ -398,6 +483,7 @@ Notice what's **not** here: no inbound 443 anywhere, no inbound 2049 on the agen
 
 | Resource | Approx. cost driver |
 |---|---|
+| VPC, Subnet, Route Table, Internet Gateway | Free — no charge for these constructs themselves |
 | NFS EC2 (`t2.micro`) | Free Tier eligible (750 hrs/month if eligible account) |
 | DataSync Agent EC2 (`m5.large`) | **Not** Free Tier — billed hourly while running, regardless of whether a task is actively syncing |
 | DataSync transfer fee | Per-GB charged for data moved by DataSync (separate from EC2/S3 costs) |
@@ -408,6 +494,12 @@ The single biggest avoidable cost in this lab is leaving the **m5.large agent in
 ---
 
 ## 🎯 Interview Q&A
+
+**Q: Why build a custom VPC instead of just using the default one?**
+A: The default VPC already has a public subnet, an Internet Gateway, and a route pre-wired, which hides exactly the pieces that matter for understanding connectivity. Building it manually — subnet, IGW, route table, association — forces you to understand what actually makes a subnet "public," which is knowledge you need the moment you're troubleshooting a real network that isn't pre-wired for you.
+
+**Q: What actually makes a subnet "public" in AWS?**
+A: Two things have to both be true: the subnet's instances need public IP addresses (via auto-assign or explicit allocation), and the subnet's route table needs a route sending `0.0.0.0/0` traffic to an Internet Gateway. Neither alone is sufficient — a subnet with an IGW route but no public IPs on its instances still can't be reached from the internet, and instances with public IPs in a subnet with no IGW route still can't reach out.
 
 **Q: How does DataSync know what changed between runs?**
 A: It uses file **metadata** (size, modification time) to identify candidates, then verifies transferred data with **checksums** — so only new or modified files are moved, and integrity is provably confirmed rather than assumed.
@@ -421,11 +513,8 @@ A: "Changed files only" performs a metadata diff and skips unchanged files — i
 **Q: Walk me through the security group design for a DataSync agent setup.**
 A: The agent only needs one inbound rule — port 80, and only temporarily, for activation. Everything else the agent does (reaching AWS on 443, reaching the NFS server on 2049) is outbound traffic it initiates, which the default outbound-allow rule already covers. The NFS server's security group is the one that needs an inbound rule on 2049, and it should be scoped to the agent's security group specifically — not to a broad IP range — so only the agent can ever reach the file share's data port.
 
-**Q: Why is the DataSync agent deployed in the public subnet in this lab?**
-A: It needs a public IP and outbound connectivity so the console can reach it on port 80 for activation and so it can reach the DataSync service's public endpoints for ongoing sync traffic over HTTPS. In a stricter production setup, you'd instead deploy a **VPC interface endpoint for DataSync** and keep the agent fully private with no public IP at all.
-
 **Q: How would you make this production-grade instead of lab-grade?**
-A: Replace `no_root_squash`/`chmod 777` with least-privilege NFS export options, use a DataSync VPC endpoint instead of the public internet for agent-to-AWS traffic, remove the port-80 activation rule entirely once activation is complete, enable CloudWatch task logging, and schedule the task (cron-style) instead of manually clicking Start.
+A: Replace `no_root_squash`/`chmod 777` with least-privilege NFS export options, use a DataSync VPC endpoint instead of the public internet for agent-to-AWS traffic, add a VPC Gateway Endpoint for S3 so bucket traffic doesn't cross the public internet either, remove the port-80 activation rule entirely once activation is complete, enable CloudWatch task logging, and schedule the task (cron-style) instead of manually clicking Start.
 
 **Q: What's actually being checksummed, and when?**
 A: Depending on verify mode, DataSync checksums either just the files transferred in that run or the entire source/destination dataset, comparing the computed checksum of what landed in S3 against the source file to confirm byte-for-byte fidelity — not just that a file with the same name and size exists.
@@ -454,6 +543,8 @@ echo "Second file" > /data/shared/file2.txt
 
 | Component | Value used in this lab |
 |---|---|
+| VPC CIDR | `10.0.0.0/16` |
+| Subnet CIDR | `10.0.1.0/24` |
 | NFS export path | `/data/shared` |
 | S3 destination prefix | `/output/` |
 | Agent instance type | `m5.large` |
@@ -470,6 +561,7 @@ echo "Second file" > /data/shared/file2.txt
 
 ## ✅ Mastery Checklist
 
+- [ ] I can explain what makes a subnet "public" (public IPs + IGW route), not just that it "has" an IGW
 - [ ] I can explain why DataSync uses an Agent instead of transferring directly via API
 - [ ] I can explain the difference between NFS export flags: `rw`, `sync`, `no_subtree_check`, `no_root_squash`
 - [ ] I can explain why the agent's security group needs almost no inbound rules (only port 80, temporarily)
@@ -495,11 +587,16 @@ Perform in this order — each step depends on the one before it being done firs
    DataSync console → Agents → select agent → Delete
 4. **Terminate both EC2 instances**
    - The "on-prem" NFS server (`datasync-nfs-server`)
-   - The Agent instance (created automatically in Phase 6)
+   - The Agent instance (created automatically in Phase 7)
    EC2 console → Instances → select both → Instance state → Terminate
 5. **Empty and delete the S3 bucket**
    S3 console → select bucket → Empty → confirm → then Delete bucket
 6. **Delete the security groups** (`sg-datasync-agent`, `sg-nfs-server`) — only possible after the EC2 instances referencing them are fully terminated
 7. **Delete the autogenerated IAM role** DataSync created for S3 access (IAM console → Roles → search for a role name containing `DataSync` or the bucket name)
+8. **Tear down the VPC networking** — only possible after the EC2 instances are gone:
+   - **Route Tables** → delete `datasync-public-rt` (or just remove the subnet association, then delete)
+   - **Internet Gateways** → select `datasync-lab-igw` → **Actions → Detach from VPC**, then delete it
+   - **Subnets** → delete `datasync-public-subnet`
+   - **VPC** → delete `datasync-lab-vpc`
 
-✅ **Final checkpoint:** EC2 Instances list is empty of lab resources, S3 bucket is gone, DataSync console shows no tasks/locations/agents remaining, and both security groups are deleted.
+✅ **Final checkpoint:** EC2 Instances list is empty of lab resources, S3 bucket is gone, DataSync console shows no tasks/locations/agents remaining, both security groups are deleted, and the VPC/subnet/IGW/route table are all gone.
