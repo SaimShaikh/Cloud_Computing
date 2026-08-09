@@ -1,36 +1,52 @@
-# 🧪 AWS Lab: On-Prem (EC2-Simulated) → S3 Migration using AWS DataSync
+# 🧪 AWS DataSync Lab (FINAL) — On-Prem (EC2-Simulated) NFS → S3
+### Matches the current DataSync console wizard exactly — Aug 2026
+
+---
+
+## 🚨 Read this before you touch the console — corrects everything from last night
+
+1. **Your region (`eu-north-1` / Stockholm) is NOT the problem.** DataSync has been fully supported there since 2019, including the EC2 agent. You do **not** need to switch to Mumbai or N. Virginia. Ignore that advice.
+2. **There is no "Launch agent (EC2)" auto-launch button anymore.** The current console wizard shows Hypervisor = Amazon EC2 with a note: *"Create an EC2 instance using the AMIs provided in our User Guide."* That's the whole story — AWS expects you to grab the AMI ID yourself (one CLI command) and launch EC2 manually in a separate tab. This matches exactly what you saw.
+3. **Instance size depends on Task mode**, which is now chosen *before* you pick the hypervisor:
+
+| Task mode | When to use | Recommended EC2 instance |
+|---|---|---|
+| **Basic** | Simple lab/test transfers, dataset under 20M files | **`m5.2xlarge`** |
+| **Enhanced** (AWS default recommendation) | Production, unlimited files, better metrics/logging | **`m6a.2xlarge`** |
+
+For this lab (2 test files), **Basic mode + `m5.2xlarge`** is the cheaper, correct choice. Use Enhanced only if you specifically want to practice that mode.
+
+4. Minimum instance size for either mode is **2xlarge** — never go smaller, the console will reject it.
 
 ---
 
 ## 📌 Scenario
 
-You are a DevOps/Cloud Engineer at a company that has years of file data sitting on an **on-premises NFS file server**. Leadership wants this data migrated to **Amazon S3** for durability, cost savings, and to unlock downstream analytics/backup workflows — but the migration must be:
-
-- **Non-disruptive** (business still writes files to the on-prem server during migration)
-- **Incremental** (only new/changed files should re-transfer, not the whole dataset every time)
-- **Verified** (data integrity must be provable, not assumed)
-
-Since a real on-prem data center isn't available for this lab, we simulate "on-prem" using an **EC2 instance running an NFS server**, inside a **custom VPC you build from scratch** (not the default VPC — so you get the full networking picture). The lab uses **AWS DataSync** — the AWS-native data transfer service purpose-built for this exact use case — to move data from the NFS share into S3.
-
-By the end of this lab, you will understand:
-- How to build a VPC with a public subnet from scratch (Internet Gateway, route table, subnet association)
-- How DataSync Agents bridge on-prem (or EC2-simulated on-prem) storage to AWS
-- How NFS locations and S3 locations are defined
-- How DataSync performs **incremental, checksum-verified transfers**
-- How to correctly scope security groups for an agent-based transfer (a common real-world misconfiguration point)
-- How to troubleshoot the most common real-world DataSync failures
+Migrate files from a simulated on-prem **NFS server (EC2)** to **S3** using **AWS DataSync**, non-disruptively and incrementally, with checksum-verified integrity. Custom VPC built from scratch so you see every networking piece. The lab then extends to **two-way sync** using a second, reversed task.
 
 ---
 
-## 🏗️ Architecture Diagram
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/2a0fcc95-911d-433b-bf36-65bf5a450928" />
+## 🏗️ Architecture (current infrastructure — includes two-way sync)
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/dbedbf90-5366-4932-87d2-13496f702b3a" />
 
 
-**Key architectural point:** DataSync doesn't move data through your laptop or the console. The **Agent** (running as an EC2 instance here) reads data directly off the NFS share and pushes it to S3 over HTTPS. The console only orchestrates — it is not in the data path.
+**Key architectural points:**
+- The **Agent** (EC2, `m5.2xlarge`, Basic mode) is the actual data mover for *both* tasks — it reads NFS for Task A and writes NFS for Task B. Same physical agent, reused.
+- **Two independent one-way tasks**, not one bidirectional task — DataSync has no native two-way mode (see Appendix below).
+- Tasks run on **offset schedules** (`:00/:15/:30/:45` vs `:07/:22/:37/:52`) so they don't race each other every cycle.
+- S3 is reached via the Internet Gateway (or a VPC Gateway Endpoint in production) — it isn't "inside" the VPC.
+- All traffic the agent initiates (NFS on 2049, AWS on 443) is outbound — the agent's own SG barely needs inbound rules; port 80 is only for the one-time activation handshake.
 
-**Key networking point:** S3 is not "inside" the VPC — it's reached over the internet via the Internet Gateway (or, in a stricter production setup, via a VPC Gateway Endpoint for S3, mentioned in the troubleshooting/production notes below). Both EC2 instances need a route to the internet to do their jobs, which is why the subnet needs an Internet Gateway and a public route.
+### Base one-way version (if you're not doing the two-way appendix)
 
-**Key security point:** All the traffic the agent initiates (to the NFS server on 2049, and to AWS on 443) is **outbound from the agent** — so the agent's own security group barely needs any inbound rules at all. The only inbound rule the agent needs is port 80, and only temporarily, for activation.
+```
+[On-prem NFS EC2] <--2049 (private IP)-- [DataSync Agent EC2] --443 HTTPS--> [DataSync Service] --> [S3 Bucket]
+   sg-nfs-server                              sg-datasync-agent
+   (22 in, 2049 from agent SG)                (80 in, temporary — activation only)
+```
+
+The Agent is the actual data mover — it reads NFS directly and pushes to S3 over HTTPS. The console only orchestrates.
 
 ---
 
@@ -38,191 +54,109 @@ By the end of this lab, you will understand:
 
 | Requirement | Detail |
 |---|---|
-| AWS Account | With permissions for VPC, EC2, S3, DataSync, IAM |
-| Region | Pick one region and use it for everything (e.g. `ap-south-1`) |
-| Budget awareness | EC2 (t2.micro + m5.large), S3 storage, DataSync per-GB fee all incur cost — see Cost Notes section |
-| SSH client | Terminal / PuTTY to connect to the "on-prem" EC2 |
+| AWS Account | Permissions for VPC, EC2, S3, DataSync, IAM, SSM |
+| Region | One region, anywhere DataSync is supported (yours — `eu-north-1` — is fine) |
+| AWS CLI | Installed and configured (`aws configure`) — needed for the AMI lookup command. CloudShell also works if you don't want to install anything locally |
+| Budget | EC2 (t2.micro + m5.2xlarge), S3 storage, DataSync per-GB fee |
 
-> ⚠️ **Cost note:** The DataSync Agent EC2 instance type recommended by AWS is **m5.large**, which is **not** Free Tier eligible. Budget for a few cents/hour while the agent is running. Terminate it as soon as the lab is done (see Cleanup section).
+> ⚠️ **Cost note:** `m5.2xlarge` is **not** Free Tier eligible. Terminate it the moment you're done testing.
 
 ---
 
 ## 🧠 Concept Deep Dive
 
-### What is AWS DataSync?
-A **managed data transfer service** that moves large amounts of data between on-premises storage (NFS, SMB, HDFS, object storage) and AWS storage services (S3, EFS, FSx) — or between AWS storage services themselves. It's built to replace slow, error-prone `rsync`/`scp` scripts with something that handles parallelism, retries, encryption, scheduling, and verification natively.
+**DataSync** = managed data transfer service moving data between on-prem storage (NFS/SMB/HDFS/object storage) and AWS storage (S3/EFS/FSx), or between AWS services. Replaces slow `rsync`/`scp` with parallelism, retries, encryption, scheduling, verification.
 
-### Why not just `aws s3 sync`?
-`aws s3 sync` works file-by-file over a single thread from wherever you run it, has no agent-based parallelism, no built-in bandwidth throttling, and no data-integrity verification report. DataSync is designed for **TB-to-PB scale** migrations with production-grade guarantees.
+**Why not `aws s3 sync`?** Single-threaded, no agent parallelism, no bandwidth throttling, no integrity report. DataSync is built for TB–PB scale.
 
-### The DataSync Agent
-The Agent is a **purpose-built virtual machine** (deployed here as an EC2 instance, but in real on-prem scenarios it's a VMware/Hyper-V/KVM OVA or a physical appliance) that:
-- Mounts your on-prem storage (NFS/SMB) locally
-- Talks to the DataSync service control plane over **HTTPS (443, outbound)**
-- Streams data directly to AWS — the agent is the actual data mover, not the console
+**The Agent:** A VM (here, EC2 running AWS's DataSync AMI) that mounts on-prem storage locally, talks to the DataSync control plane over HTTPS (443, outbound), and streams data to AWS.
 
-### Locations
-DataSync uses the concept of **Locations** — reusable pointers to either a source or destination:
-- **NFS Location** → server IP/hostname + export path + which Agent to use
-- **S3 Location** → bucket + optional prefix/folder + IAM role for write access
-
-### Transfer Modes
+**Task modes:**
 | Mode | Behavior |
 |---|---|
-| **Changed files only** (default, recommended) | Compares source vs destination metadata; transfers only new/modified files |
-| **All data** | Re-transfers everything every run, ignoring destination state |
+| Basic | Supports up to 50M files/folders total; lower performance; simpler resource footprint |
+| Enhanced | No file quota; advanced metrics, more detailed logs, higher performance |
 
-### Verification Modes
+**Locations:** reusable pointers — NFS Location (server + export path + agent) or S3 Location (bucket + prefix + IAM role).
+
+**Transfer modes:**
 | Mode | Behavior |
 |---|---|
-| **Verify only the data transferred** | Checksums only the files moved in this run (fast, recommended for incremental syncs) |
-| **Verify all data in transfer** | Checksums entire source and destination dataset every run (slow, thorough — use for final cutover) |
-| **No verification** | Not recommended — skips integrity checks |
+| Changed files only (default) | Metadata diff; transfers only new/modified files |
+| All data | Re-transfers everything every run |
 
-### How does DataSync know what changed? (the interview-favorite detail)
-DataSync compares **file metadata** — size, modification timestamp, and (depending on verification mode) **checksum** — between source and destination. If metadata matches, the file is skipped. If it differs or the file is new, it's queued for transfer and checksummed after landing in S3 to confirm byte-for-byte integrity.
+**Verify modes:**
+| Mode | Behavior |
+|---|---|
+| Verify only data transferred | Checksums only files moved this run |
+| Verify all data in transfer | Checksums entire dataset every run |
+
+**How DataSync detects changes:** Compares file metadata (size, mtime). Match → skip. Differ/new → transfer, then checksum after landing in S3 to confirm byte-for-byte integrity.
 
 ---
 
 ## 🧭 PHASE 1 — Build the VPC from Scratch
 
-We build a dedicated VPC instead of using the default one so you see every networking piece that has to exist for a public-subnet EC2 workload to function: the VPC itself, a subnet, an Internet Gateway, and a route table tying them together.
+### 1a — Create the VPC
+**VPC console → Create VPC → VPC only**
+- Name: `datasync-lab-vpc` · IPv4 CIDR: `10.0.0.0/16` · No IPv6 · Tenancy: Default
+- **Create VPC**
 
-### Step 1a — Create the VPC
-1. **AWS Console → search VPC → VPC Dashboard**
-2. Click **Create VPC**
-3. Choose **VPC only** (not "VPC and more" — we're building each piece manually so nothing is skipped or hidden)
-4. Fill in:
-   - **Name tag:** `datasync-lab-vpc`
-   - **IPv4 CIDR block:** `10.0.0.0/16`
-   - **IPv6 CIDR block:** No IPv6
-   - **Tenancy:** Default
-5. Click **Create VPC**
+### 1b — Create a Public Subnet
+**Subnets → Create subnet** → VPC: `datasync-lab-vpc`
+- Name: `datasync-public-subnet` · AZ: any (e.g. `eu-north-1a`) · CIDR: `10.0.1.0/24`
+- **Create subnet**
 
-✅ **Checkpoint:** `datasync-lab-vpc` appears in your VPC list with state **Available**.
+### 1c — Enable Auto-Assign Public IP
+Select subnet → **Actions → Edit subnet settings** → check **Enable auto-assign public IPv4 address** → **Save**
 
-### Step 1b — Create a Public Subnet
-1. Left sidebar → **Subnets → Create subnet**
-2. **VPC ID:** select `datasync-lab-vpc`
-3. Fill in:
-   - **Subnet name:** `datasync-public-subnet`
-   - **Availability Zone:** pick any AZ in your region (e.g. `ap-south-1a`)
-   - **IPv4 CIDR block:** `10.0.1.0/24`
-4. Click **Create subnet**
+### 1d — Internet Gateway
+**Internet Gateways → Create internet gateway** → name `datasync-lab-igw`
+Select it → **Actions → Attach to VPC** → `datasync-lab-vpc`
 
-### Step 1c — Enable Auto-Assign Public IP on the subnet
-By default, new subnets do **not** auto-assign public IPs, which means you'd have to remember to manually enable "Auto-assign public IP" every time you launch an instance. Set it at the subnet level once, so you don't have to think about it again:
-1. Select `datasync-public-subnet` → **Actions → Edit subnet settings**
-2. Check **Enable auto-assign public IPv4 address**
-3. **Save**
+### 1e — Route Table
+**Route Tables → Create route table** → name `datasync-public-rt`, VPC `datasync-lab-vpc`
+- **Routes → Edit routes → Add route**: `0.0.0.0/0` → Target: Internet Gateway → `datasync-lab-igw` → **Save**
+- **Subnet associations → Edit subnet associations** → check `datasync-public-subnet` → **Save**
 
-✅ **Checkpoint:** Subnet exists inside the VPC, with auto-assign public IP turned on.
-
-### Step 1d — Create and Attach an Internet Gateway
-A subnet isn't "public" just because it has public IPs available — it needs an actual route to the internet, which requires an Internet Gateway (IGW).
-
-1. Left sidebar → **Internet Gateways → Create internet gateway**
-2. **Name tag:** `datasync-lab-igw`
-3. Click **Create internet gateway**
-4. It's created in a **Detached** state — select it → **Actions → Attach to VPC**
-5. Choose `datasync-lab-vpc` → **Attach internet gateway**
-
-✅ **Checkpoint:** IGW state shows **Attached** to `datasync-lab-vpc`.
-
-### Step 1e — Create a Route Table and Route Traffic to the Internet Gateway
-The IGW being attached to the VPC isn't enough on its own — the subnet's route table needs an explicit route telling it "send anything not destined for the VPC's local CIDR out through the IGW."
-
-1. Left sidebar → **Route Tables → Create route table**
-2. Fill in:
-   - **Name tag:** `datasync-public-rt`
-   - **VPC:** `datasync-lab-vpc`
-3. Click **Create route table**
-4. Select the new route table → **Routes tab → Edit routes**
-5. Click **Add route**:
-   - **Destination:** `0.0.0.0/0`
-   - **Target:** Internet Gateway → select `datasync-lab-igw`
-6. **Save changes**
-7. Now associate this route table with the subnet: **Subnet associations tab → Edit subnet associations**
-8. Check `datasync-public-subnet` → **Save associations**
-
-✅ **Checkpoint:** `datasync-public-rt` has a route `0.0.0.0/0 → datasync-lab-igw` and is associated with `datasync-public-subnet`. This is what makes the subnet genuinely "public" — instances launched here with a public IP can now actually reach, and be reached from, the internet.
-
-> **Don't skip this step.** This is the single most common reason a freshly built VPC's EC2 instances can't be SSH'd into or can't reach the internet — people create the subnet and the IGW but forget to wire the route table between them.
+✅ **Checkpoint:** IGW attached, route table has `0.0.0.0/0 → igw`, associated with the subnet.
 
 ---
 
-## 🧭 PHASE 2 — Create the S3 Bucket (Destination)
+## 🧭 PHASE 2 — Create the S3 Bucket
 
-1. Open the **AWS Console** → search **S3**
-2. Click **Create bucket**
-3. Fill in:
-   - **Bucket name:** `datasync-demo-bucket-<yourname>` (must be globally unique — add initials/numbers if taken)
-   - **Region:** the same region you used for the VPC (e.g. `ap-south-1` — Mumbai)
-4. Leave all other settings at default (Block Public Access **ON**, versioning off)
-5. Click **Create bucket**
-
-✅ **Checkpoint:** Bucket appears in your S3 bucket list with 0 objects.
-
-> Note: S3 buckets are not created "inside" a VPC — they're a global/regional service reached over the network (via the IGW you just built, or a private VPC endpoint in a stricter setup). That's why this step doesn't ask you to pick a VPC.
+**S3 → Create bucket**
+- Name: `datasync-demo-bucket-<yourname>` (globally unique) · Region: same as VPC
+- Leave defaults → **Create bucket**
 
 ---
 
-## 🧭 PHASE 3 — Create Security Groups (do this before launching any instance)
+## 🧭 PHASE 3 — Create Security Groups (before launching anything)
 
-Creating both security groups **now, in the right order**, avoids having to edit rules later. `sg-nfs-server` needs to reference `sg-datasync-agent` as a traffic source, so the agent's SG must exist first.
+### 3a — `sg-datasync-agent` (create first)
+VPC: `datasync-lab-vpc`
+- **Inbound:** HTTP (80) from **My IP** — temporary, for activation only
+- **Outbound:** default Allow all
 
-### Step 3a — Create `sg-datasync-agent` (no dependencies, create first)
-1. **EC2 console → Security Groups → Create security group**
-2. **Name:** `sg-datasync-agent`
-3. **VPC:** `datasync-lab-vpc`
-4. **Inbound rules:**
+### 3b — `sg-nfs-server`
+VPC: `datasync-lab-vpc`
+- **Inbound:** SSH (22) from My IP · Custom TCP 2049 from **`sg-datasync-agent`** (select the SG as the source, not an IP)
+- **Outbound:** default Allow all
 
-   | Type | Port | Source | Purpose |
-   |---|---|---|---|
-   | HTTP | 80 | My IP | One-time agent activation only — AWS auto-closes this after activation completes |
-
-5. **Outbound rules:** leave the default **Allow all traffic** rule in place. Do not remove it — the agent needs outbound access to AWS's DataSync service endpoints (port 443) and outbound access to the NFS server (port 2049), and both are covered by the default outbound-allow-all rule.
-6. Click **Create security group**
-
-> Why no inbound 443 or 2049 here: the agent only ever *initiates* those connections — it calls out to AWS and calls out to the NFS server. Neither requires an inbound rule on the agent's own SG.
-
-### Step 3b — Create `sg-nfs-server` (references the agent's SG)
-1. **Create security group** again
-2. **Name:** `sg-nfs-server`
-3. **VPC:** `datasync-lab-vpc`
-4. **Inbound rules:**
-
-   | Type | Port | Source | Purpose |
-   |---|---|---|---|
-   | SSH | 22 | My IP | So you can SSH in to configure NFS |
-   | Custom TCP | 2049 | **`sg-datasync-agent`** (select the security group itself as the source, not an IP range) | Lets the DataSync agent mount the NFS export — scoped to only the agent, not the whole internet |
-
-5. **Outbound rules:** leave default **Allow all traffic**.
-6. Click **Create security group**
-
-✅ **Checkpoint:** Two security groups exist: `sg-datasync-agent` (80 in) and `sg-nfs-server` (22 in, 2049 in from `sg-datasync-agent`). Nothing needs to be revisited later.
-
-> 🔒 **Why this matters:** The commonly-seen shortcut of opening port 2049 to `0.0.0.0/0` (Anywhere) exposes your file server's data port to the entire internet. Scoping the source to a security group ID instead means only instances that are members of `sg-datasync-agent` — i.e., only your actual DataSync agent — can ever reach port 2049, regardless of what IP that instance happens to have.
+✅ **Checkpoint:** Both SGs exist. 2049 scoped to the agent's SG only, never `0.0.0.0/0`.
 
 ---
 
-## 🧭 PHASE 4 — Launch EC2 (Simulated "On-Prem" NFS Server)
+## 🧭 PHASE 4 — Launch EC2 ("On-Prem" NFS Server)
 
-1. Go to **EC2 → Instances → Launch instance**
-2. Fill in:
-   - **Name:** `datasync-nfs-server`
-   - **AMI:** Ubuntu Server 22.04 LTS
-   - **Instance type:** `t2.micro` (Free Tier eligible)
-   - **Key pair:** select an existing key pair or create a new one and download the `.pem`
-3. **Network settings** (click **Edit** to expand):
-   - **VPC:** `datasync-lab-vpc`
-   - **Subnet:** `datasync-public-subnet`
-   - **Auto-assign public IP:** Enable (should already default to Enable since you set that at the subnet level in Phase 1c, but confirm it here)
-   - **Firewall (security groups):** choose **Select existing security group** → pick **`sg-nfs-server`**
-4. Click **Launch instance**
-5. Note the **Public IPv4 address** and **Private IPv4 address** — you'll need both later.
+**EC2 → Launch instance**
+- Name: `datasync-nfs-server` · AMI: Ubuntu Server 22.04 LTS · Type: `t2.micro`
+- Key pair: existing or new
+- **Network settings (Edit):** VPC `datasync-lab-vpc` · Subnet `datasync-public-subnet` · Auto-assign public IP: Enable · Security group: select existing → `sg-nfs-server`
+- **Launch instance**
+- Note the **Public IPv4** and **Private IPv4**.
 
-✅ **Checkpoint:** Instance state = Running, status checks = 2/2 passed.
+✅ **Checkpoint:** Running, 2/2 status checks passed.
 
 ---
 
@@ -233,293 +167,309 @@ chmod 400 your-key.pem
 ssh -i your-key.pem ubuntu@<PUBLIC-IP>
 ```
 
-✅ **Checkpoint:** You have a shell prompt like `ubuntu@ip-10-0-1-x:~$`. If this hangs or times out, revisit Phase 1e (route table) and Phase 3b (SSH rule) before anything else — this is the connectivity chain that has to be right.
+If this hangs: revisit Phase 1e (route table) and Phase 3b (SSH rule).
 
 ---
 
 ## 🧭 PHASE 6 — Set Up the NFS Server
 
-### Install NFS server software
 ```bash
 sudo apt update
 sudo apt install -y nfs-kernel-server
-```
 
-### Create the shared directory
-```bash
 sudo mkdir -p /data/shared
-sudo chmod 777 /data/shared
-```
-> Note: `chmod 777` is used here purely for lab simplicity so DataSync's default mount can read/write without UID/GID mapping issues. In production, scope permissions tightly and use `no_root_squash`/`root_squash` deliberately based on your security requirements.
+sudo chmod 777 /data/shared   # lab simplicity only
 
-### Add sample files
-```bash
 echo "Hello DataSync" > /data/shared/file1.txt
 dd if=/dev/zero of=/data/shared/bigfile.bin bs=1M count=50
-```
-This creates a small text file and a 50 MB binary file so you can see DataSync handle both trivial and non-trivial transfer sizes.
 
-### Configure the NFS export
-```bash
 sudo nano /etc/exports
 ```
-Paste this line at the end of the file:
+Add this line:
 ```
 /data/shared *(rw,sync,no_subtree_check,no_root_squash)
 ```
 
-**What each flag means:**
 | Flag | Meaning |
 |---|---|
-| `rw` | Read-write access |
-| `sync` | Writes are confirmed to disk before acknowledging — safer, matches real production NFS behavior |
-| `no_subtree_check` | Disables subtree checking (improves reliability for exported subdirectories) |
-| `no_root_squash` | Lets the DataSync agent (connecting as root) read files without UID remapping — needed for a clean lab. In production, evaluate this carefully. |
+| `rw` | Read-write |
+| `sync` | Writes confirmed to disk before ack |
+| `no_subtree_check` | Disables subtree checking |
+| `no_root_squash` | Lets the agent (as root) read files without UID remapping |
 
-Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
-
-### Apply the export
 ```bash
 sudo exportfs -a
 sudo systemctl restart nfs-kernel-server
+sudo exportfs -v                 # confirm export
+sudo ss -tlnp | grep 2049        # confirm NFSv4 on 2049 only
 ```
 
-### Verify the export
+✅ **Checkpoint:** EC2 is your "on-prem" NFS server with 2 test files.
+
+---
+
+## 🧭 PHASE 7 — Get the DataSync Agent AMI (this replaces the missing "Launch agent" button)
+
+Open **CloudShell** (icon in the top AWS console bar) or your local terminal with AWS CLI configured. Run:
+
 ```bash
-sudo exportfs -v
+aws ssm get-parameter --name /aws/service/datasync/ami --region eu-north-1
 ```
-You should see output confirming `/data/shared` is exported with the flags above.
 
-### (Optional but recommended) Confirm the daemon is only listening where expected
+Replace `eu-north-1` with your actual region if different.
+
+- The output JSON has a `"Value"` field — that's your **AMI ID** (looks like `ami-0123456789abcdef0`). Copy it.
+- If you get `ParameterNotFound`, try the versioned parameter instead:
+  ```bash
+  aws ssm get-parameter --name /aws/service/datasync/ami/v3 --region eu-north-1
+  ```
+
+✅ **Checkpoint:** You have a real AMI ID string copied somewhere safe.
+
+---
+
+## 🧭 PHASE 8 — Launch the Agent EC2 Instance (manual, using the AMI)
+
+> ⚠️ **Don't use the "Browse more AMIs" modal to search your AMI ID.** That modal does a keyword/text search, not an exact ID lookup — searching an AMI ID there returns unrelated results (Amazon Linux, NVIDIA GPU AMIs, ECS-optimized images, etc.) because none of their names/descriptions contain your ID string. This wasted time in testing; use the method below instead, which is confirmed working.
+
+### Confirmed-working method: direct launch URL
+1. In a new tab, go to this exact URL (swap in your own AMI ID and region if different):
+   ```
+   https://us-east-1.console.aws.amazon.com/ec2/home?region=us-east-1#LaunchInstances:ami=ami-0f063e6b693a082c4
+   ```
+2. **Careful when typing/pasting this** — if the URL gets truncated (e.g. cut off at `region=us-east-` with no `1`), AWS will show a **"Region Unsupported"** error page that looks like a real regional-availability problem but is actually just a broken URL. Select the entire address bar and retype/repaste cleanly if this happens.
+3. This opens the Launch Instance wizard with your AMI **already correctly selected** — confirmed working in testing. The Summary panel on the right should show:
+   - **Software Image (AMI):** `aws-datasync-2.0.x-x86_64-gp2`, with your AMI ID underneath
+   - It won't show a description/logo the way Marketplace AMIs do — that's normal, it's an Amazon-owned service AMI, not a Marketplace listing
+
+### Finish the launch form
+1. **Name:** `datasync-agent`
+2. **Instance type:** change from the default (often `t3.micro`) to **`m5.2xlarge`** — must be at least 2xlarge, smaller types get rejected during activation. Ignore any "Free tier eligible" badge on smaller types; it doesn't apply here.
+3. **Key pair:** not required (activation happens over HTTP, not SSH) — select "Proceed without a key pair" if prompted, or attach one anyway if you want it for later
+4. **Network settings (Edit):**
+   - VPC: `datasync-lab-vpc`
+   - Subnet: `datasync-public-subnet`
+   - Auto-assign public IP: **Enable**
+   - Firewall (security groups): **Select existing security group** → `sg-datasync-agent` (the Summary panel will say "New security group" by default — you must change this)
+5. **Storage:** leave at the default (80 GiB) — don't shrink it
+6. Double-check the Summary panel: AMI ID correct, instance type `m5.2xlarge`, security group `sg-datasync-agent` — then **Launch instance**
+7. Wait for **Running + 2/2 status checks passed**, then wait **3–5 more minutes** — status checks passing doesn't guarantee the agent's internal activation web server is live yet
+8. Note the agent's **Public IPv4 address**
+
+### Fallback: CLI method (use if the launch URL/wizard gives you trouble)
 ```bash
-sudo ss -tlnp | grep 2049
+# Get your subnet ID and security group ID first:
+aws ec2 describe-subnets --filters "Name=tag:Name,Values=datasync-public-subnet" --query "Subnets[0].SubnetId" --region us-east-1
+aws ec2 describe-security-groups --filters "Name=group-name,Values=sg-datasync-agent" --query "SecurityGroups[0].GroupId" --region us-east-1
+
+# Then launch:
+aws ec2 run-instances \
+  --image-id ami-0f063e6b693a082c4 \
+  --instance-type m5.2xlarge \
+  --subnet-id <your-subnet-id> \
+  --security-group-ids <your-sg-id> \
+  --associate-public-ip-address \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=datasync-agent}]'
 ```
-This confirms NFSv4 is bound to TCP port 2049 — the only port you need open in the security group (Ubuntu 22.04's `nfs-kernel-server` negotiates NFSv4 by default, which consolidates the legacy NFSv3 `portmapper`/`mountd`/`nfsd` ports down to just 2049).
 
-✅ **Checkpoint:** EC2 is now functioning as your "on-prem" NFS file server with 2 test files.
-
----
-
-## 🧭 PHASE 7 — Launch the DataSync Agent
-
-1. Go to **AWS Console → DataSync**
-2. Left sidebar → **Agents → Create agent**
-3. **Deployment/Activation:**
-   - Choose **Amazon EC2** as the hosting platform (deploys the agent as an EC2 instance running AWS's DataSync AMI)
-4. Fill in:
-   - **Instance type:** `m5.large` (AWS-recommended minimum for the agent AMI — smaller types aren't offered because the agent needs the memory/network throughput headroom)
-   - **VPC:** `datasync-lab-vpc`
-   - **Subnet:** `datasync-public-subnet` (the agent needs outbound internet access to reach the DataSync public service endpoint, and needs a public IP so the console can reach it on port 80 for activation)
-   - **Auto-assign public IP:** Enable
-   - **Security group:** select the existing **`sg-datasync-agent`** (created in Phase 3 — do not create a new one here)
-5. Click **Launch agent** (or **Next**, depending on console flow — this provisions the EC2-based agent instance)
-
-✅ **Checkpoint:** A new EC2 instance appears (agent), and the DataSync console shows an agent in "Not activated" state. No security group or networking edits are needed — everything was already scoped correctly in Phases 1 and 3.
+✅ **Checkpoint:** Agent EC2 instance running, public IP noted. This instance is standalone right now — DataSync doesn't know about it yet. That happens in the next phase.
 
 ---
 
-## 🧭 PHASE 8 — Activate the Agent
+## 🧭 PHASE 9 — Create the Agent in DataSync + Activate (matches your exact screen)
 
-1. Note the **Public IP** of the newly launched agent EC2 instance
-2. In a browser, go to:
-   ```
-   http://<agent-public-ip>
-   ```
-   This opens the agent's local activation web UI (served on port 80 directly from the agent instance).
-3. The page auto-generates an **Activation Key**. Copy it.
-4. Go back to the **DataSync console → Agents → Activate agent**
-5. Paste the activation key, give the agent a friendly name (e.g. `nfs-onprem-agent`)
-6. Click **Activate**
+1. **DataSync console → Agents → Create agent**
+2. **Source location:** Network File System (NFS)
+3. **Destination location:** Amazon S3
+4. **Task mode:** **Basic** (matches the `m5.2xlarge` instance you launched — if you chose Enhanced instead, you needed `m6a.2xlarge` in Phase 8)
+5. **Hypervisor:** Amazon EC2
+6. **Service endpoint:** Public service endpoint in your region (default is fine for this lab)
+7. **Activation key** — choose ONE of these two paths:
 
-✅ **Checkpoint:** Agent status in the console changes to **ONLINE**. AWS automatically stops relying on port 80 once activation completes — you can remove that inbound rule from `sg-datasync-agent` afterward if you want to tighten things further, though it's not required for the rest of this lab.
+### Path A — Automatic (try first)
+- Select **Automatically get the activation key from your agent**
+- **Agent address:** `http://<agent-public-ip>` (must include `http://`, and this is an IP — never paste it into the "Activation key" box, that's a different field expecting a code string like `ABCDE-12345-...`)
+- Click **Get key**
+- If it succeeds, the key auto-fills → give the agent a name (e.g. `nfs-onprem-agent`) → **Create agent**
 
-> **If the activation page won't load:** it's almost always a security group or routing issue — confirm port 80 is open from wherever your browser is connecting from (check "My IP" hasn't changed if you're on a different network than when the SG was created), confirm the agent has a public IP, and confirm the route table from Phase 1e is correctly associated with the subnet.
+### Path B — If "Get key" hangs or errors
+1. Open a **new browser tab** → go directly to `http://<agent-public-ip>`
+   - **Loads, shows an Activation Key** → copy it → back in DataSync console, select **Manually enter your agent's activation key** → paste the key (not the IP) → name the agent → **Create agent**. Done.
+   - **Times out** → connectivity issue, go through this checklist:
+     - Agent instance Running, 2/2 checks, **at least 3–5 min since launch**
+     - Public IP re-copied fresh from EC2 console (changes if ever stopped/started)
+     - `sg-datasync-agent` inbound rule is TCP **80**, source **My IP** — refresh this rule if your network changed since creating it
+     - Route table from Phase 1e still associated with the subnet
+<img width="3325" height="1703" alt="image" src="https://github.com/user-attachments/assets/64e3a566-c07f-44da-813a-82bd783f57df" />
+<img width="3326" height="1557" alt="image" src="https://github.com/user-attachments/assets/f7a1848a-a8f6-40a6-b746-82e6910d0917" />
+<img width="3332" height="1724" alt="image" src="https://github.com/user-attachments/assets/b63e314e-f589-4dde-a10d-c43c8b7ed557" />
 
----
 
-## 🧭 PHASE 9 — Create the Source Location (NFS)
-
-1. DataSync console → **Locations → Create location**
-2. Location type: **NFS**
-3. Fill in:
-   - **NFS server:** the **private IP** of your "on-prem" EC2 (the agent talks to it inside the VPC — private IP is correct and more secure than routing over the public IP)
-   - **Mount path:** `/data/shared`
-   - **Agents:** select the agent you activated in Phase 8
-4. Click **Create location**
-
-✅ **Checkpoint:** Location status = **Available**. If this fails, it's almost always `sg-nfs-server` not allowing port 2049 from `sg-datasync-agent` — double check Phase 3b.
-
----
-
-## 🧭 PHASE 10 — Create the Destination Location (S3)
-
-1. **Create location → Amazon S3**
-2. Fill in:
-   - **S3 bucket:** select `datasync-demo-bucket-<yourname>`
-   - **Folder (prefix):** `/output/`
-   - **IAM role:** choose **Autogenerate** (DataSync creates a scoped role with exactly the S3 permissions it needs — `s3:GetObject`, `s3:PutObject`, `s3:ListBucket`, etc., on this bucket only)
-3. **Storage class:** Standard (default) is fine for this lab
-4. Click **Create location**
-
-✅ **Checkpoint:** Location status = **Available**.
+✅ **Checkpoint:** Agent status in DataSync console = **ONLINE**. AWS auto-closes port 80 after activation.
 
 ---
 
-## 🧭 PHASE 11 — Create the Task
+## 🧭 PHASE 10 — Create the Task (this now builds both Locations for you, inline)
 
-1. **Tasks → Create task**
-2. **Source location:** select your NFS location
-3. **Destination location:** select your S3 location
-4. Click **Next**
+> ⚠️ **Console change from the old flow:** there used to be a separate **Locations** menu where you created the NFS location and S3 location first, then a separate **Tasks → Create task** step where you just picked from a dropdown. That's gone. The current console **merges all of it into one "Create task" wizard** with 4 steps: Configure source location → Configure destination location → Configure settings → Review. You still end up with the same NFS Location and S3 Location objects behind the scenes — you just create them inline as part of this one flow instead of as separate standalone steps.
 
-### Additional settings (important — this is where behavior is actually defined)
-| Setting | Value | Why |
+**DataSync console → Tasks → Create task**
+
+### Step 1 — Configure source location
+- **Source location options:** leave on **Create a new location**
+- **Location type:** Network File System (NFS) *(should already be selected)*
+- **Region:** confirms it matches your VPC's region — DataSync requires NFS transfers to stay in the current Region
+- **Agents:** select your activated agent from the dropdown (e.g. `My-Agent`) — it should show status **Basic mode** or **Enhanced mode** matching what you set up
+- **NFS server:** enter the **private IPv4** of your "on-prem" EC2 (from EC2 console → `datasync-nfs-server` → Private IPv4 address — not the public one, the agent talks to it inside the VPC)
+- **Mount path:** `/data/shared` (must exactly match the export path from Phase 6)
+- Leave **Additional settings** collapsed/default
+- Click **Next**
+
+<img width="3310" height="1621" alt="image" src="https://github.com/user-attachments/assets/8fb3c634-6240-4a09-9d99-2d3ad258e143" />
+
+
+
+✅ If this step fails on Next: almost always `sg-nfs-server` not allowing port 2049 from `sg-datasync-agent` — recheck Phase 3b.
+
+### Step 2 — Configure destination location
+- **Destination location options:** Create a new location
+- **Location type:** Amazon S3
+- **S3 bucket:** select `datasync-demo-bucket-<yourname>`
+- **Folder (prefix):** `/output/`
+- **IAM role:** Autogenerate (DataSync creates a scoped role with exactly the S3 permissions it needs)
+- **Storage class:** Standard
+- Click **Next**
+
+<img width="3294" height="1709" alt="image" src="https://github.com/user-attachments/assets/379e85f1-69b3-48e8-ac5f-e39635354083" />
+<img width="3306" height="1188" alt="image" src="https://github.com/user-attachments/assets/ed5ca104-4548-45fe-a387-42016100cfdb" />
+
+<img width="3330" height="1372" alt="image" src="https://github.com/user-attachments/assets/c30b3dad-7079-4b22-8670-d784eb1a1531" />
+
+
+### Step 3 — Configure settings
+
+This screen exposes more granular controls than older versions of the console did. Go field by field:
+
+| Field | What to select | Why / use case |
 |---|---|---|
-| **Transfer mode** | Changed files only | Enables true incremental sync — this is the whole point of the lab |
-| **Verify mode** | Verify only data transferred | Fast, still gives checksum-level integrity confidence on what actually moved |
-| **Overwrite behavior** | Always | Ensures the destination reflects the latest source state even if a file was manually edited in S3 |
-| **Task logging (optional)** | Enable → send to CloudWatch Logs | Strongly recommended so you can see per-file transfer decisions |
+| **Task mode** | Should already show **Basic** (locked/greyed out) | It's forced to match your agent's mode — you set up a Basic-mode agent in Phase 8/9, so the task must be Basic too. **This can't be changed after the task is created**, so if it's showing Enhanced by mistake, fix it now before proceeding. |
+| **Name** (optional) | `datasync-lab-task`, or leave blank | Cosmetic only — AWS auto-names it if you skip this. Useful once you have multiple tasks and need to tell them apart. |
+| **Contents to scan** | Leave as **Everything** | You want the whole `/data/shared` folder transferred. Use **Excludes** only if you had subfolders/files you deliberately wanted DataSync to skip (e.g. temp files, logs) — not needed for this lab. |
+| **Transfer mode** | **Transfer only data that has changed** | This *is* the incremental-sync behavior the whole lab exists to demonstrate — DataSync diffs file metadata and only moves what's new/modified. The alternative, "Transfer all data," re-copies everything every run and is only useful for a guaranteed full refresh or first-time bulk validation. |
+| **Verification** | **Verify only transferred data** | Checksums just the files that moved in this run — fast, and still gives integrity confidence. Use "Verify all data" instead only for a final cutover/migration where you want to checksum the entire source and destination datasets every run (slower). |
+| **Bandwidth limit** | **Use available** | No need to throttle for a 50 MB lab transfer. In production, you'd cap this if the sync competes with business traffic during work hours. |
+| **Keep deleted files** | Leave **ON** (default — keep) | If a file gets deleted from `/data/shared`, this setting means DataSync leaves the already-synced copy in S3 alone rather than deleting it too. Safer default for a lab (and for most real backup/archival use cases) — you don't want DataSync silently deleting your S3 data because someone deleted the source file. |
+| **Overwrite files** | Turn **ON** | When source data (including metadata) changes, this lets the updated version overwrite what's already in S3. You need this ON for Phase 13's incremental test to actually show `file1.txt` being re-transferred after you edit it — without it, DataSync would see a same-named object already exists and skip it. |
+| **Copy ownership** | Leave **Yes** (default) | Preserves the source file's UID/GID (owner) metadata on the S3 object. Matters if you care about faithfully reproducing on-prem file ownership info in your migration — harmless to leave on for a lab. |
+| **Copy permissions** | Leave **Yes** (default) | Preserves POSIX permission bits (rwx) as S3 object metadata. Same reasoning — faithful metadata copy, no downside for this lab. |
+| **Copy timestamps** | Leave **Yes** (default) | Preserves the source file's modification time as S3 object metadata. This is actually important for the *change detection* itself — DataSync's "changed files only" comparison partly relies on timestamps matching, so this should stay on. |
+| **Queueing** | Leave **Yes** (default) | Lets DataSync queue up multiple task executions if you try to start one while another is still running, instead of rejecting the second attempt. Sensible default, especially relevant once you add a Schedule. |
+| **Schedule** | Choose based on your goal — see below | Two valid approaches: |
 
-5. Click **Create task**
+**Schedule — pick one:**
+- **Not scheduled** (what the lab originally recommended): you control exactly when the sync runs via the **Start** button, so you can watch each Phase 11/13 execution manually and see cause → effect clearly. Best if you're learning the mechanics.
+- **Rate expression, `rate(15 minutes)`** (or the cron equivalent `cron(0/15 * * * ? *)`): the task now runs automatically every 15 minutes in the background, including empty runs when nothing's changed. Good for practicing scheduling, but remember this keeps firing (and can incur small ongoing CloudWatch/API costs) until you either set it back to Not scheduled or delete the task — don't forget it's running after you've finished testing.
 
-✅ **Checkpoint:** Task status = **Available** (not yet running).
+| **Task report** | Leave **None** | Optional detailed per-file report written to S3 (extra S3 pricing). Not needed for the lab — CloudWatch logging (next field) already gives you visibility into what transferred. |
+| **Logging → Log level** | Change from the default **"Log basic information such as transfer errors"** to the **most detailed option available** (often labeled "Log all transfer operations" or similar) | The default only logs errors — you won't see which files were skipped vs transferred in CloudWatch. Bump this up if you want that visibility for Phase 13's incremental test. If you leave it on Basic (also a valid choice), you can still confirm file counts through the task execution UI itself instead of CloudWatch — you just won't get per-file logs. |
+| **CloudWatch log group** | Leave **Autogenerate** (creates `/aws/datasync`) | DataSync creates and manages the log group for you — no need to pre-create one. |
+| CloudWatch resource policy prompt (if shown) | **Accept/Allow** | DataSync needs this policy to actually be permitted to write logs to CloudWatch on your behalf. Required for logging to function at all. |
 
----
+Click **Next**
 
-## 🧭 PHASE 12 — Run the Task
+### Step 4 — Review
 
-1. Select your task → click **Start**
-2. Choose **Start with defaults**
-3. Watch the execution detail page:
-   - **Status** → Launching → Preparing → Transferring → Verifying → Success
-   - Live metrics: **files transferred**, **data transferred**, **throughput**
-4. Wait until:
-   - **Status = SUCCESS**
+Confirm everything on the summary page matches what you configured. A correct review page looks like this:
 
-✅ **Checkpoint:** Task execution shows 2 files transferred, ~50 MB transferred total.
+| Section | Field | Expected value |
+|---|---|---|
+| Source location | Type / Path / Server / Agent | NFS / `/data/shared` / your NFS server's private IP / your agent, Basic mode |
+| Destination location | Type / Path / S3 bucket / Storage class / IAM role | S3 / `/output/` / your bucket name / Standard / autogenerated `AWSDataSyncS3BucketAccess-...` role |
+| Settings | Transfer mode | Transfer only data that has changed |
+| Settings | Verification | Verify only transferred data |
+| Settings | Keep deleted files / Overwrite files | Yes / Yes |
+| Settings | Copy ownership / permissions / timestamps / Queueing | Yes / Yes / Yes / Yes (all defaults) |
+| Settings | Schedule | Either "Not scheduled" or your chosen rate/cron expression |
+| Settings | Task report | None |
+| Settings | Logging | Your chosen log level; log group `/aws/datasync` |
 
----
+If anything doesn't match, click **Previous** to go back and fix the relevant step — settings can still be changed at this point, nothing is final until you click **Create task**.
 
-## 🧭 PHASE 13 — Verify in S3
+Click **Create task**.
 
-1. Go to **S3 → your bucket**
-2. Navigate into `/output/`
-3. Confirm you see:
-   - `file1.txt`
-   - `bigfile.bin`
-4. Optionally download `file1.txt` and confirm its contents read `Hello DataSync`.
-
-✅ **Checkpoint:** Files present in S3, byte sizes match the source.
-
----
-
-## 🧭 PHASE 14 — Test Incremental Sync (the core DataSync value proposition)
-
-1. Back on the "on-prem" EC2:
-   ```bash
-   echo "Second file" > /data/shared/file2.txt
-   ```
-2. In the DataSync console, select the same task → **Start** again
-3. Watch the execution:
-   - 👉 **Only `file2.txt` transfers.** `file1.txt` and `bigfile.bin` are skipped because their metadata is unchanged since the last successful sync.
-
-✅ **Checkpoint:** Task execution shows **1 file transferred**, not 3 — this proves changed-files-only mode is working.
-
-**Bonus test (optional):** Modify `file1.txt` (`echo "Updated" >> /data/shared/file1.txt`) and re-run — you should see exactly 1 file transferred again, confirming DataSync detects *modifications*, not just *new* files.
+✅ **Checkpoint:** Task status = **Available** (or already running its first execution, if you scheduled it). Behind the scenes this created one NFS Location, one S3 Location, and one Task — all three now show up individually if you check the DataSync left nav.
 
 ---
 
-## 🧠 What Just Happened (Plain-English Recap)
+## 🧭 PHASE 11 — Run the Task
 
-1. You built a VPC with a public subnet, wired an Internet Gateway into its route table, and launched two EC2 instances into it — one acting as an on-prem NFS server, one as the DataSync agent.
-2. DataSync's agent connected to your NFS export and enumerated files with their metadata (size, mtime).
-3. On the first run, it compared that metadata against an empty S3 destination → everything was "new" → full transfer.
-4. Data was streamed agent → AWS over HTTPS, landed in S3, and checksummed against the source to confirm integrity.
-5. On the second run, it re-scanned the source, compared metadata against what's now in S3, and found only `file2.txt` didn't have a matching destination object → transferred just that one file.
-6. This metadata-diff-then-checksum-verify pattern is what makes DataSync suitable for **ongoing, scheduled, production-grade sync** rather than a one-time copy tool.
+Select task → **Start** → **Start with defaults**
+Watch: Launching → Preparing → Transferring → Verifying → **Success**
 
----
+✅ **Checkpoint:** 2 files transferred, ~50 MB total.
 
-## 🔒 Security Group Summary (quick reference)
-
-| Security Group | Attached To | Inbound Rules | Outbound Rules |
-|---|---|---|---|
-| `sg-datasync-agent` | DataSync Agent EC2 | TCP 80 from My IP (activation only, temporary) | Default: allow all (needed for outbound 443 to AWS, outbound 2049 to NFS server) |
-| `sg-nfs-server` | "On-prem" NFS EC2 | TCP 22 from My IP (SSH); TCP 2049 from `sg-datasync-agent` | Default: allow all |
-
-Notice what's **not** here: no inbound 443 anywhere, no inbound 2049 on the agent's own SG, and no `0.0.0.0/0` source on the NFS port. Every rule maps to traffic that's actually initiated in that direction.
+<img width="3299" height="1576" alt="image" src="https://github.com/user-attachments/assets/781df9cc-8655-418a-a809-a29a19f921e9" />
 
 ---
 
-## 🌐 VPC/Networking Summary (quick reference)
+## 🧭 PHASE 12 — Verify in S3
 
-| Component | Value |
-|---|---|
-| VPC | `datasync-lab-vpc` — `10.0.0.0/16` |
-| Subnet | `datasync-public-subnet` — `10.0.1.0/24`, auto-assign public IP enabled |
-| Internet Gateway | `datasync-lab-igw`, attached to `datasync-lab-vpc` |
-| Route Table | `datasync-public-rt` — route `0.0.0.0/0 → datasync-lab-igw`, associated with `datasync-public-subnet` |
+**S3 → your bucket → /output/** — confirm `file1.txt` and `bigfile.bin` exist. Optionally download `file1.txt`, confirm it reads `Hello DataSync`.
+
+<img width="3340" height="1418" alt="image" src="https://github.com/user-attachments/assets/6a356cef-d37c-460c-83b0-c437e9b97c95" />
 
 ---
 
-## ⚠️ Troubleshooting Reference
+## 🧭 PHASE 13 — Test Incremental Sync
+
+```bash
+echo "Second file" > /data/shared/file2.txt
+```
+Re-run the same task → only `file2.txt` transfers; the other two are skipped (metadata unchanged).
+
+**Bonus:** `echo "Updated" >> /data/shared/file1.txt` → re-run → exactly 1 file transferred, confirming DataSync detects modifications, not just new files.
+
+
+---
+
+
+
+## ⚠️ Troubleshooting Reference (final, corrected)
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
-| Can't SSH into the NFS EC2 at all (connection times out) | Route table not associated with the subnet, or IGW not attached | Revisit Phase 1d/1e — confirm the IGW shows "Attached" and the route table has the `0.0.0.0/0` route and is associated with `datasync-public-subnet` |
-| EC2 launches with no public IP | Auto-assign public IP wasn't enabled at the subnet level, and wasn't overridden at launch | Revisit Phase 1c, or explicitly enable it in the instance launch wizard's network settings |
-| NFS location creation fails / agent can't mount | `sg-nfs-server` not allowing port 2049 from `sg-datasync-agent` | Edit `sg-nfs-server` inbound rules, confirm the 2049 rule's source is the agent's security group ID, not an IP |
-| Agent stuck "Not activated" | Port 80 blocked on `sg-datasync-agent`, or no internet route | Check inbound 80 from your current IP (it changes across networks); confirm the agent's subnet has a route to an Internet Gateway |
-| Agent activation page won't load in browser | Agent has no public IP, or your IP isn't the one allowed in the SG | Confirm "Auto-assign public IP" was enabled at launch; re-check "My IP" hasn't changed since the SG rule was created |
-| Task runs but S3 stays empty | Wrong mount path, or NFS export permissions too restrictive | Confirm mount path is exactly `/data/shared`; check `exportfs -v` output; check `chmod` on the directory |
-| Task fails with permission error on S3 side | Autogenerated IAM role wasn't granted, or bucket policy conflicts | Recreate the S3 location and let DataSync autogenerate the role again; check bucket policy for explicit denies |
-| Transfer very slow | Undersized agent instance, or bandwidth throttle set on the task | Confirm `m5.large` (not smaller); check task's bandwidth limit setting under Additional settings |
-| Second run transfers ALL files again, not just the new one | Transfer mode was set to "All data" instead of "Changed files only" | Edit the task, confirm Transfer mode = Changed files only |
-| `exportfs -v` shows nothing | `/etc/exports` syntax error or `exportfs -a` not run after edit | Re-check the exact line in `/etc/exports`, re-run `sudo exportfs -a` |
+| No "Launch agent (EC2)" button anywhere | **Not a bug or region issue.** Current console requires manual AMI lookup + manual EC2 launch | Follow Phase 7–8 exactly |
+| Told to "switch regions" to fix this | **False.** DataSync + EC2 agent is fully supported in `eu-north-1` and virtually every commercial region | Ignore; stay in your region |
+| Can't SSH into NFS EC2 | Route table not associated, or IGW not attached | Revisit Phase 1d/1e |
+| EC2 has no public IP | Auto-assign not enabled | Revisit Phase 1c or enable at launch |
+| `Value '<ip>' at 'activationKey' failed` | Typed an IP into the **Activation key** field instead of **Agent address** | Use the Agent address field for the IP; Activation key field only ever takes a code string |
+| "Get key" hangs / times out | Agent not fully booted yet, or stale "My IP" SG rule | Wait 3–5 min after launch; refresh the My IP rule |
+| Direct `http://<agent-ip>` browser test also fails | SG port 80 not actually open, or instance not Running yet | Recheck SG rule is TCP 80; recheck instance status |
+| Console rejects your chosen instance type | Instance smaller than 2xlarge, or wrong size for the task mode you picked | Basic mode → `m5.2xlarge`; Enhanced mode → `m6a.2xlarge` |
+| Searching your AMI ID in "Browse more AMIs" returns unrelated results (Amazon Linux, NVIDIA, ECS AMIs) | That search box does keyword/text matching on name & description, not exact AMI ID lookup | Skip it — use the direct launch URL: `https://<region>.console.aws.amazon.com/ec2/home?region=<region>#LaunchInstances:ami=<ami-id>` |
+| Page shows "Region Unsupported" listing supported regions | The launch URL got truncated while typing/pasting (e.g. `region=us-east-` missing the `1`) — looks like a region problem but isn't | Retype/repaste the full URL carefully, or select the whole address bar first to avoid partial overwrite |
+| Step 1 of Create task won't advance / errors on Next | `sg-nfs-server` not allowing 2049 from agent SG (this step is where the NFS location actually gets created now) | Fix Phase 3b |
+| Task runs but S3 stays empty | Wrong mount path or export permissions | Confirm `/data/shared`; check `exportfs -v` |
+| Second run transfers ALL files again | Transfer mode set to "All data" | Edit task → Changed files only |
 
 ---
 
 ## 💰 Cost Notes
 
-| Resource | Approx. cost driver |
+| Resource | Driver |
 |---|---|
-| VPC, Subnet, Route Table, Internet Gateway | Free — no charge for these constructs themselves |
-| NFS EC2 (`t2.micro`) | Free Tier eligible (750 hrs/month if eligible account) |
-| DataSync Agent EC2 (`m5.large`) | **Not** Free Tier — billed hourly while running, regardless of whether a task is actively syncing |
-| DataSync transfer fee | Per-GB charged for data moved by DataSync (separate from EC2/S3 costs) |
-| S3 storage | Standard storage rates for what lands in `/output/` |
+| VPC/Subnet/IGW/Route Table | Free |
+| NFS EC2 (`t2.micro`) | Free Tier eligible |
+| Agent EC2 (`m5.2xlarge` Basic mode) | Not Free Tier — billed hourly while running |
+| DataSync transfer fee | Per-GB moved |
+| S3 storage | Standard rates |
 
-The single biggest avoidable cost in this lab is leaving the **m5.large agent instance running** after you're done — it does nothing useful once you've validated the sync, so terminate it promptly.
-
----
-
-## 🎯 Interview Q&A
-
-**Q: Why build a custom VPC instead of just using the default one?**
-A: The default VPC already has a public subnet, an Internet Gateway, and a route pre-wired, which hides exactly the pieces that matter for understanding connectivity. Building it manually — subnet, IGW, route table, association — forces you to understand what actually makes a subnet "public," which is knowledge you need the moment you're troubleshooting a real network that isn't pre-wired for you.
-
-**Q: What actually makes a subnet "public" in AWS?**
-A: Two things have to both be true: the subnet's instances need public IP addresses (via auto-assign or explicit allocation), and the subnet's route table needs a route sending `0.0.0.0/0` traffic to an Internet Gateway. Neither alone is sufficient — a subnet with an IGW route but no public IPs on its instances still can't be reached from the internet, and instances with public IPs in a subnet with no IGW route still can't reach out.
-
-**Q: How does DataSync know what changed between runs?**
-A: It uses file **metadata** (size, modification time) to identify candidates, then verifies transferred data with **checksums** — so only new or modified files are moved, and integrity is provably confirmed rather than assumed.
-
-**Q: Why does DataSync need an Agent instead of just using the S3 API directly from on-prem?**
-A: The Agent handles the protocol translation (NFS/SMB → AWS APIs), parallelizes transfers, manages retries/backpressure, and gives you a single throttleable, monitorable component — none of which a plain `aws s3 sync` script provides at scale.
-
-**Q: What's the difference between "Changed files only" and "All data" transfer modes?**
-A: "Changed files only" performs a metadata diff and skips unchanged files — ideal for recurring/incremental syncs. "All data" re-transfers everything every run regardless of destination state — useful mainly for a guaranteed full refresh or first-time bulk copy validation.
-
-**Q: Walk me through the security group design for a DataSync agent setup.**
-A: The agent only needs one inbound rule — port 80, and only temporarily, for activation. Everything else the agent does (reaching AWS on 443, reaching the NFS server on 2049) is outbound traffic it initiates, which the default outbound-allow rule already covers. The NFS server's security group is the one that needs an inbound rule on 2049, and it should be scoped to the agent's security group specifically — not to a broad IP range — so only the agent can ever reach the file share's data port.
-
-**Q: How would you make this production-grade instead of lab-grade?**
-A: Replace `no_root_squash`/`chmod 777` with least-privilege NFS export options, use a DataSync VPC endpoint instead of the public internet for agent-to-AWS traffic, add a VPC Gateway Endpoint for S3 so bucket traffic doesn't cross the public internet either, remove the port-80 activation rule entirely once activation is complete, enable CloudWatch task logging, and schedule the task (cron-style) instead of manually clicking Start.
-
-**Q: What's actually being checksummed, and when?**
-A: Depending on verify mode, DataSync checksums either just the files transferred in that run or the entire source/destination dataset, comparing the computed checksum of what landed in S3 against the source file to confirm byte-for-byte fidelity — not just that a file with the same name and size exists.
+Terminate the agent instance the moment you're done — it's the single biggest avoidable cost in this lab.
 
 ---
+
+
+
 
 ## 📋 Cheat Sheet
 
@@ -530,73 +480,118 @@ sudo mkdir -p /data/shared && sudo chmod 777 /data/shared
 echo "/data/shared *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a /etc/exports
 sudo exportfs -a
 sudo systemctl restart nfs-kernel-server
-sudo exportfs -v              # verify export
-sudo ss -tlnp | grep 2049     # confirm NFSv4 listening on 2049 only
+sudo exportfs -v
+sudo ss -tlnp | grep 2049
 
 # Test files
 echo "Hello DataSync" > /data/shared/file1.txt
 dd if=/dev/zero of=/data/shared/bigfile.bin bs=1M count=50
-
-# Incremental test
 echo "Second file" > /data/shared/file2.txt
+
+# Get the agent AMI (run this instead of looking for a "launch" button)
+aws ssm get-parameter --name /aws/service/datasync/ami --region eu-north-1
 ```
 
-| Component | Value used in this lab |
+| Component | Value |
 |---|---|
 | VPC CIDR | `10.0.0.0/16` |
 | Subnet CIDR | `10.0.1.0/24` |
 | NFS export path | `/data/shared` |
 | S3 destination prefix | `/output/` |
-| Agent instance type | `m5.large` |
+| Agent instance type | `m5.2xlarge` (Basic mode, min 2xlarge required) |
 | NFS server instance type | `t2.micro` |
 | Agent activation port | 80 (inbound, temporary) |
-| Agent → AWS comms port | 443 (outbound) |
+| Agent → AWS port | 443 (outbound) |
 | Agent → NFS port | 2049 (outbound) |
-| NFS server inbound port | 2049 (from `sg-datasync-agent` only) |
 | Transfer mode | Changed files only |
 | Verify mode | Verify only transferred data |
-| Overwrite | Always |
 
 ---
 
-## ✅ Mastery Checklist
-
-- [ ] I can explain what makes a subnet "public" (public IPs + IGW route), not just that it "has" an IGW
-- [ ] I can explain why DataSync uses an Agent instead of transferring directly via API
-- [ ] I can explain the difference between NFS export flags: `rw`, `sync`, `no_subtree_check`, `no_root_squash`
-- [ ] I can explain why the agent's security group needs almost no inbound rules (only port 80, temporarily)
-- [ ] I correctly scoped the NFS server's security group to only allow port 2049 from the Agent's SG, not `0.0.0.0/0`
-- [ ] I can explain the activation flow (port 80, one-time) versus ongoing sync traffic (port 443, outbound)
-- [ ] I ran a first sync (full transfer) and a second sync (incremental — only new file moved)
-- [ ] I can explain "Changed files only" vs "All data" transfer modes
-- [ ] I can explain the two verify modes and when you'd choose each
-- [ ] I know how DataSync detects changes (metadata diff + checksum verification)
-- [ ] I completed cleanup and confirmed no lingering billable resources
 
 ---
 
-## 💣 Cleanup (DO THIS — DataSync Agent + EC2 will keep billing otherwise)
+## 🔁 APPENDIX — Setting Up Two-Way Sync (NFS ↔ S3)
 
-Perform in this order — each step depends on the one before it being done first:
+### Why this needs two tasks, not one
 
-1. **Delete the DataSync Task**
-   DataSync console → Tasks → select task → Delete
-2. **Delete the DataSync Locations** (NFS and S3)
-   DataSync console → Locations → select each → Delete
-3. **Delete the DataSync Agent** (this deregisters it from the service — the underlying EC2 instance still needs separate termination in the next step)
-   DataSync console → Agents → select agent → Delete
-4. **Terminate both EC2 instances**
-   - The "on-prem" NFS server (`datasync-nfs-server`)
-   - The Agent instance (created automatically in Phase 7)
-   EC2 console → Instances → select both → Instance state → Terminate
-5. **Empty and delete the S3 bucket**
-   S3 console → select bucket → Empty → confirm → then Delete bucket
-6. **Delete the security groups** (`sg-datasync-agent`, `sg-nfs-server`) — only possible after the EC2 instances referencing them are fully terminated
-7. **Delete the autogenerated IAM role** DataSync created for S3 access (IAM console → Roles → search for a role name containing `DataSync` or the bucket name)
-8. **Tear down the VPC networking** — only possible after the EC2 instances are gone:
-   - **Route Tables** → delete `datasync-public-rt` (or just remove the subnet association, then delete)
-   - **Internet Gateways** → select `datasync-lab-igw` → **Actions → Detach from VPC**, then delete it
-   - **Subnets** → delete `datasync-public-subnet`
-   - **VPC** → delete `datasync-lab-vpc`
+DataSync tasks are **one-directional** — a task has exactly one source and one destination, and it only ever pushes data that direction. There's no built-in "bidirectional" toggle. Your original task (NFS → S3) only reacts to changes made in `/data/shared` — if someone uploads a file directly to S3, DataSync never notices or touches it, because that file was never present in the *source* location the task is watching.
 
-✅ **Final checkpoint:** EC2 Instances list is empty of lab resources, S3 bucket is gone, DataSync console shows no tasks/locations/agents remaining, both security groups are deleted, and the VPC/subnet/IGW/route table are all gone.
+**True two-way sync = two separate one-way tasks pointed at each other:**
+- Task A: NFS → S3 (already built earlier in this guide)
+- Task B: S3 → NFS (new — mirror image of Task A)
+
+### ⚠️ Trade-offs to understand before building this
+
+| Risk | What it means | Mitigation |
+|---|---|---|
+| **No conflict resolution** | If the same file is edited on both NFS and S3 between sync runs, whichever task runs *last* wins — the other side's edit is silently overwritten. DataSync has no merge logic, no "conflict" flag, no warning. | Don't edit the same file from both sides in the same sync window. If you need real conflict-aware sync, DataSync isn't the right tool — look at something with versioning/merge logic instead. |
+| **Sync "chatter"** | Task A writes a file to S3 → Task B sees it as new and pulls it to NFS, which can touch its timestamp → Task A sees it as "changed" again next run. Usually harmless (same content, small repeated transfers) but adds noise to your logs and a little extra transfer cost. | Stagger the two tasks' schedules so they don't run back-to-back constantly (see below). |
+| **Deletion asymmetry** | With "Keep deleted files = Yes" on both tasks (the safe default), deleting a file on one side will **not** delete it on the other side on the next sync — the two locations can drift out of sync on deletions specifically, even though they stay in sync on additions/edits. | Understand this is by design for safety. If you actually want deletions to propagate, you'd change "Keep deleted files" to delete on both tasks — but that's riskier (a mistaken local delete becomes a permanent remote delete too). |
+
+### What actually happens when the same file exists on both sides
+
+This is the scenario most people get wrong intuitively, so it's worth spelling out in full — there are three distinct cases:
+
+**Case 1 — Same filename, same content, same metadata (the normal steady state)**
+This is what you get right after Task A's first sync: both sides hold an identical copy. When Task B runs, it compares metadata (size, timestamp) between S3 and NFS — they match, so DataSync marks the file **unchanged** and **skips it**. No transfer, no chatter. Once both sides are in sync, both tasks mostly do nothing on each run except confirm nothing changed.
+
+**Case 2 — Same filename, same content, but metadata differs (e.g. timestamp shifted slightly)**
+Can happen from small timing artifacts during a write. DataSync sees the metadata mismatch and **re-transfers the file anyway**, even though the bytes are identical. Harmless, but this is the "sync chatter" mentioned in the trade-offs table above — some wasted transfer and log noise even though nothing meaningful changed.
+
+**Case 3 — Same filename, but genuinely *different* content on each side (the real danger case)**
+Say `notes.txt` exists on both NFS and S3, but someone independently edited the NFS copy while someone else independently edited the S3 copy. There's **no merge and no conflict warning** — whichever task's next scheduled run happens first simply overwrites the other side. If Task A (NFS→S3) runs first, it silently overwrites S3's version with the NFS version, discarding whatever was on S3. Task B, running later, now sees NFS and S3 matching (Task A just made them match) and does nothing — so the S3-side edit is gone permanently, with zero indication anything was lost.
+
+**Bottom line:** identical files across both sides are fine and don't cause loops or data loss. The actual risk is only when the *same file* is independently modified on both sides between sync runs — that's a silent last-write-wins overwrite, not a merge, and there's no way to recover the losing version afterward unless S3 versioning is enabled separately on the bucket (which is not part of this lab's setup).
+
+### Setup steps
+
+**Prerequisite:** you already have the NFS Location and S3 Location objects from Phase 10 — you'll reuse both, just swapped.
+
+1. **DataSync console → Tasks → Create task**
+
+2. **Step 1 — Source location:**
+   - Choose **an existing location**
+   - Select your existing **S3 location** (`datasync-demo-bucket-<yourname>/output/`)
+   - Click **Next**
+
+3. **Step 2 — Destination location:**
+   - Choose **an existing location**
+   - Select your existing **NFS location** (`/data/shared` via your agent)
+   - Click **Next**
+   - *(Same agent, same NFS server — it's now being written to instead of read from. No new agent needed, but the agent must have network access to write, same as it already does to read.)*
+
+4. **Step 3 — Settings:**
+   - **Task mode:** Basic (same constraint as before — must match your agent's mode)
+   - **Transfer mode:** Transfer only data that has changed
+   - **Verification:** Verify only transferred data
+   - **Keep deleted files:** Yes (recommended — see deletion asymmetry note above)
+   - **Overwrite files:** Yes
+   - **Schedule:** this is the important part — **offset it from Task A's schedule** so the two tasks aren't racing each other every single run. Examples:
+     - If Task A runs `cron(0/15 * * * ? *)` (on the hour, :15, :30, :45)
+     - Set Task B to `cron(7/15 * * * ? *)` (:07, :22, :37, :52) — roughly halfway between Task A's runs
+   - **Logging:** same choice as Task A — bump to detailed if you want to see per-file activity for this direction too
+
+5. **Name it** something distinct, e.g. `datasync-lab-task-reverse`, so the two tasks are easy to tell apart in the console
+
+6. **Step 4 — Review → Create task**
+
+✅ **Checkpoint:** You now have two tasks in the DataSync console:
+- `datasync-lab-task` — NFS → S3
+- `datasync-lab-task-reverse` — S3 → NFS
+
+Together, a file added on either side eventually appears on both — that's your two-way sync.
+
+### Testing it
+
+```bash
+# Test A: change originates on NFS (already covered in Phase 13)
+echo "From NFS" > /data/shared/from-nfs.txt
+# Wait for Task A's next run → confirm from-nfs.txt appears in S3 /output/
+
+# Test B: change originates on S3
+# Upload a file directly to S3 (console, or CLI):
+aws s3 cp ./from-s3.txt s3://datasync-demo-bucket-<yourname>/output/from-s3.txt
+# Wait for Task B's next run → SSH into the NFS EC2 and confirm it landed in /data/shared/
+```
+
