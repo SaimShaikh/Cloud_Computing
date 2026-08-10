@@ -17,28 +17,7 @@ You need to move (and optionally keep syncing) objects from Account A's S3 bucke
 
 ## Architecture
 
-```
-┌─────────────────────────────┐        ┌─────────────────────────────┐
-│        ACCOUNT A (Source)    │        │      ACCOUNT B (Destination) │
-│                              │        │                              │
-│  ┌────────────────────┐      │        │      ┌────────────────────┐  │
-│  │  source-bucket-a    │      │        │      │   dest-bucket-b     │  │
-│  │  (owns the data)    │      │        │      │   (receives data)   │  │
-│  └─────────┬──────────┘      │        │      └─────────▲──────────┘  │
-│            │                  │        │                │             │
-│  ┌─────────▼──────────┐      │        │      ┌──────────┴─────────┐  │
-│  │  DataSync Task      │──────┼────────┼─────▶│  Bucket Policy      │  │
-│  │  (runs HERE, in     │      │  writes │      │  trusts source-     │  │
-│  │  same Region as     │      │  via    │      │  datasync-role       │  │
-│  │  destination         │      │  role   │      │  by exact ARN        │  │
-│  │  location — see      │      │  assume │      └─────────────────────┘  │
-│  │  Step 5 warning)     │      │         │                              │
-│  │                     │      │         │      Object Ownership:        │
-│  │  IAM Role:          │      │         │      ACLs disabled            │
-│  │  source-datasync-role│      │         │      (bucket owner enforced) │
-│  └────────────────────┘      │        │                              │
-└─────────────────────────────┘        └─────────────────────────────┘
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/e38fa189-08bd-4e35-a18b-a17f3755aa5d" />
 
 **Key mental model:** the DataSync task and *both* locations are created in the **source account**. The destination account creates zero DataSync resources — it only grants trust via bucket policy (and optionally KMS key policy).
 
