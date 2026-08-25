@@ -40,6 +40,32 @@ Think of a highway with a **reserved lane**. That lane is yours — no other car
 | Set to 0 | Instantly stops the function from running (kill switch) |
 | Who should use it | Functions that must never overwhelm a downstream system (e.g., RDS database with limited connections) |
 
+### Min / Max values
+
+| Setting | Value |
+|---|---|
+| Minimum | 0 |
+| Default | Not set — function uses the shared account pool |
+| Default account concurrency | 1,000 concurrent executions / Region |
+| **Maximum you can reserve (default account quota)** | **900** |
+| Unreserved concurrency AWS always keeps aside | 100 |
+
+```
+Total account concurrency = 1,000
+
+Reserved concurrency
+        ↓
+   Maximum = 900
+
+Remaining unreserved
+        ↓
+       100
+```
+
+> AWS always keeps **100 concurrency unreserved**, so you can never reserve the full 1,000 — even if no other function has reserved anything. If your account-level quota is increased above 1,000, the reservable max increases too, but 100 stays unreserved.
+
+**Easy interview answer:** Reserved Concurrency minimum is 0. With the default Lambda account concurrency of 1,000 per Region, you can reserve up to 900 for a function, because Lambda always keeps 100 unreserved for functions without a reservation.
+
 ### Example
 ```
 Account concurrency limit = 1,000
@@ -50,6 +76,12 @@ Result:
 - Those 100 slots are locked for order-processor only
 - Remaining 900 slots are shared by all other functions
 ```
+
+### Special case — setting it to 0
+```
+Reserved Concurrency = 0
+```
+This effectively **disables** the function — it won't process any invocations until you remove or raise the setting. Useful as an emergency kill switch.
 
 ### How to set it (Console)
 ```
@@ -152,7 +184,83 @@ aws lambda delete-provisioned-concurrency-config \
 
 ---
 
-## 4. Side-by-Side Comparison
+## 4. Is Concurrency Paid?
+
+**No — concurrency itself is not charged separately.** Lambda bills you for what your function actually *does*, not for the slots it's allowed to use.
+
+| Feature | Separate charge? |
+|---|---|
+| Concurrency (in general) | ❌ No |
+| Reserved Concurrency | ❌ No |
+| Provisioned Concurrency | ✅ Yes |
+| Lambda execution / requests | ✅ Yes |
+
+### Example
+```
+Reserved Concurrency = 100
+        ↓
+No separate "100 concurrency" charge
+```
+If you reserve 100 but the function never runs, **you pay nothing extra**. You only pay for actual invocations (requests + duration + memory).
+
+Provisioned Concurrency is the exception — AWS charges you for keeping environments **pre-initialized and idle**, whether or not you use them.
+
+```
+Reserved Concurrency     → No separate capacity charge
+Provisioned Concurrency  → Additional charge for keeping environments ready
+```
+
+---
+
+## 5. Lambda Billing Variables (What Actually Costs Money)
+
+| Variable | What it means |
+|---|---|
+| **Requests** | How many times your function is invoked |
+| **Duration** | How long each invocation runs |
+| **Memory** | Memory configured for the function |
+| **Architecture** | x86 vs ARM/Graviton — different pricing |
+| **Provisioned Concurrency** | Extra cost for keeping environments warm |
+| **Ephemeral storage** | Extra `/tmp` storage beyond the included amount |
+| **Other services** | API Gateway, S3, DynamoDB, CloudWatch, etc. bill separately |
+
+### Simple formula
+```
+Lambda Cost
+   =
+Number of Requests
++
+(Memory allocated × Execution Duration)
+
+Then add, if applicable:
++ Provisioned Concurrency
++ Additional Ephemeral Storage
++ Other AWS services used
+```
+
+### Example
+```
+Requests       = 1,000,000
+Memory         = 512 MB
+Average time   = 2 seconds
+Provisioned    = 0
+
+Cost driven by:
+1,000,000 requests
+        +
+512 MB × 2 sec × those executions
+
+NOT by Reserved Concurrency.
+```
+
+> **Note:** Higher memory also gives your function proportionally more CPU — so a higher-memory config can sometimes finish faster and end up cheaper overall, despite the higher per-second rate.
+
+### One-line office answer
+> Lambda cost mainly depends on requests, execution duration, and memory. Provisioned Concurrency and extra ephemeral storage add charges — Reserved Concurrency itself does not.
+
+---
+
+## 6. Side-by-Side Comparison
 
 | | Reserved Concurrency | Provisioned Concurrency |
 |---|---|---|
@@ -167,7 +275,7 @@ aws lambda delete-provisioned-concurrency-config \
 
 ---
 
-## 5. When to Use What
+## 7. When to Use What
 
 | Scenario | Use |
 |---|---|
@@ -180,7 +288,7 @@ aws lambda delete-provisioned-concurrency-config \
 
 ---
 
-## 6. Common Mistakes (Troubleshooting)
+## 8. Common Mistakes (Troubleshooting)
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
@@ -192,7 +300,7 @@ aws lambda delete-provisioned-concurrency-config \
 
 ---
 
-## 7. One-Line Summary
+## 9. One-Line Summary
 
 > **Reserved Concurrency** = "How many can run, guaranteed and capped."
 > **Provisioned Concurrency** = "How many are kept warm and ready, instantly."
