@@ -37,11 +37,22 @@ N × (N - 1) / 2   connections
 | 10   | 45                          |
 | 20   | 190                         |
 
-That's a lot of cables to manage. Also, VPC Peering has one big limitation:
+That's a lot of cables to manage.
 
-> ❌ **No transitive routing.** If A is peered with B, and B is peered with C, A **cannot** talk to C through B. You'd need a *direct* A–C peering too.
+### All VPC Peering Limitations (full list)
 
-TGW fixes both problems: one connection per VPC, and traffic *can* pass through it to reach others.
+| Limitation | What It Means |
+|---|---|
+| ❌ **No transitive routing** | If A is peered with B, and B is peered with C, A **cannot** talk to C through B. You'd need a *direct* A–C peering too |
+| ❌ **No overlapping CIDRs** | Two VPCs with the same (or overlapping) IP range can never be peered together |
+| ❌ **Connection count grows fast** | `N × (N-1)/2` connections needed for full mesh — becomes unmanageable at scale |
+| ❌ **Can't share a VPN/DX connection through it** | A peered VPC can't act as a "pass-through" to let another VPC reach your on-prem VPN or Direct Connect |
+| ❌ **Can't reference a peered VPC's security group** (across-region) | Referencing security groups by ID across a peering connection only works within the same region, not cross-region |
+| ❌ **One-to-one design gets hard to manage** | Routing, monitoring, and troubleshooting are all distributed — no single central place to see everything |
+| ❌ **Route tables must be updated manually everywhere** | Every VPC's route table needs its own entry for every peered VPC — no automatic propagation like TGW offers |
+| ⚠️ **Same-region vs cross-region behavior differs slightly** | Some features (like DNS resolution over peering) need to be explicitly enabled, and behave a bit differently cross-region |
+
+TGW fixes the scaling and transitive-routing problems: one connection per VPC, and traffic *can* pass through the hub to reach others. (Note: TGW still can't fix overlapping CIDRs — see Section 13.)
 
 ---
 
