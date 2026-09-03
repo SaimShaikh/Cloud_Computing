@@ -77,7 +77,6 @@ Here's a full reference table of every TGW component, in plain words, with why i
 | **ASN (Autonomous System Number)** | The "ID badge" of a network in BGP | Needed on both sides of a BGP session so each network can identify itself |
 | **Blackhole Route** | A route that silently drops matching traffic | Used to intentionally block a destination, or appears automatically if a route's target attachment is removed |
 | **Route Selection (Longest Prefix Match)** | The rule TGW uses when multiple routes match | Not something you configure — just know TGW always picks the *most specific* matching route |
-| **AWS RAM (Resource Access Manager)** | Shares the TGW across multiple AWS accounts | Used in multi-account setups so one central account can own the TGW and share it with others |
 | **TGW Peering** | The connection type linking two TGWs | Used for cross-region (or cross-account) TGW-to-TGW connectivity |
 | **TGW Connect** | GRE + BGP based attachment for appliances/SD-WAN | Used to integrate third-party network appliances or SD-WAN routers with TGW |
 | **GRE Tunnel** | Wraps one packet inside another to form a tunnel | The transport mechanism underneath TGW Connect (no encryption by itself) |
@@ -89,7 +88,7 @@ Here's a full reference table of every TGW component, in plain words, with why i
 > 🧠 **Quick way to group these in your head:**
 > - **Connectivity pieces** → Attachment, VPC/VPN/DX/Peering/Connect Attachment
 > - **Routing pieces** → Route Table, Association, Propagation, Static Route, BGP, Blackhole, Route Selection
-> - **Scaling/sharing pieces** → RAM, TGW Peering
+> - **Scaling/sharing pieces** → TGW Peering
 > - **Special-purpose pieces** → Appliance Mode, TGW Connect, GRE, TGW CIDR, Multicast
 
 ---
@@ -321,24 +320,7 @@ This lets VPCs attached to TGW-1 talk to VPCs attached to TGW-2, across regions.
 
 ---
 
-## 17. AWS RAM — Sharing TGW Across Accounts
-
-**AWS RAM (Resource Access Manager)** lets one AWS account own the TGW, and *share* it with other accounts — very common in companies with multiple AWS accounts.
-
-```
-             Central Network Account
-                      |
-                     TGW
-        /─────────────┼─────────────\
-   Account-A       Account-B       Account-C
-     VPC              VPC             VPC
-```
-
-This way, one team manages the network, while other teams just attach their VPCs to it.
-
----
-
-## 18. Appliance Mode — For Firewalls
+## 17. Appliance Mode — For Firewalls
 
 If traffic has to pass through a **firewall or security appliance**, that appliance often needs to see *both directions* of traffic (request AND reply) to work correctly.
 
@@ -351,7 +333,7 @@ VPC-A → TGW → Firewall VPC → TGW → VPC-B
 
 ---
 
-## 19. TGW vs VPC Peering — Quick Comparison
+## 18. TGW vs VPC Peering — Quick Comparison
 
 | Feature | VPC Peering | TGW |
 |---|---|---|
@@ -366,7 +348,7 @@ VPC-A → TGW → Firewall VPC → TGW → VPC-B
 
 ---
 
-## 20. Cost — Quick Note
+## 19. Cost — Quick Note
 
 TGW is **not free**. You generally pay for:
 1. Each **attachment** (hourly)
@@ -376,7 +358,7 @@ VPC Peering has no hourly connection fee — just standard data transfer charges
 
 ---
 
-## 21. The Big Picture — Train Station Analogy 🚉
+## 20. The Big Picture — Train Station Analogy 🚉
 
 Think of TGW as a **central railway station**:
 
@@ -402,13 +384,13 @@ Think of TGW as a **central railway station**:
 
 ---
 
-## 22. One-Line Answer (for interviews)
+## 21. One-Line Answer (for interviews)
 
 > AWS Transit Gateway is a centralized hub that connects multiple VPCs, VPNs, and on-prem networks. Traffic enters through an **attachment**, is looked up using the route table that attachment is **associated** with, and gets forwarded based on routes that were either **propagated** automatically or added as **static routes**.
 
 ---
 
-## 23. The 5 Things to Never Forget
+## 22. The 5 Things to Never Forget
 
 1. **TGW** = central hub
 2. **Attachment** = the doorway in/out
