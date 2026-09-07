@@ -8,7 +8,7 @@ Simulating a real Site-to-Site VPN entirely inside AWS: one VPC plays the role o
 
 Before touching the console, know exactly what you're building and why each piece exists.
 
-<img width="1831" height="859" alt="image" src="https://github.com/user-attachments/assets/e4c11616-9f70-4dc4-af1b-c75925df2cd0" />
+<img width="1831" height="859" alt="image" src="https://github.com/user-attachments/assets/8b9b8ff2-9fd5-464f-8129-47090208e00d" />
 
 
 **What each piece is doing, in plain terms:**
@@ -273,3 +273,21 @@ Delete in exactly this order — AWS won't let you delete something that's still
 7. **Delete VPC-A and VPC-B.**
 
 Skipping the release of the Elastic IP is the single most common leftover cost from this lab — it keeps billing even with nothing attached to it.
+
+---
+
+## Part 6 — Billing variables in this specific lab
+
+This lab uses a **VGW-based, static-routing** VPN connection — the billing picture is different (and simpler) than a Transit-Gateway-based setup, so don't assume TGW pricing applies here.
+
+| Billing variable | Why it applies here | Notes |
+|---|---|---|
+| **VPN connection — hourly rate** | One Site-to-Site VPN connection (`VPN-A-to-B`) | Billed per connection-hour it exists and is **available**, regardless of tunnel UP/DOWN state or how much traffic passes through it. This is the charge most likely to be forgotten after the lab. |
+| **Data transfer OUT** | Traffic leaving AWS through the tunnel toward EC2-B | Standard EC2 data-transfer-out rates. **Data coming INTO AWS over the VPN is free** — only the outbound direction is billed. For a ping/SSH test this is negligible, but matters for real workloads. |
+| **Public IPv4 address charges** | Every VPN tunnel uses a public IPv4 address on the AWS side | AWS charges for public IPv4 addresses generally (not just unattached ones) — this applies to the addresses behind your tunnels too. |
+| **Elastic IP on EC2-B** | Allocated to simulate a static "on-prem" public IP | Same public IPv4 charge as above — bills whether or not it's actively passing traffic, as long as it's allocated. |
+| **EC2-A and EC2-B instance costs** | Two running instances, in two separate regions | Not a VPN-specific charge, but part of the lab's real total cost — standard EC2 on-demand hourly rate × 2 instances. |
+| **Virtual Private Gateway (VGW)** | Attached to VPC-A | **No separate hourly charge** — unlike Transit Gateway, VGW attachment itself is free. The VPN connection's own hourly rate is the only gateway-side cost. |
+| **Customer Gateway** | Registered as `CGW-EC2-B` | **No charge** — it's only a configuration record of EC2-B's public IP, not a provisioned resource. |
+
+**One thing worth flagging if you ever rebuild this lab on Transit Gateway instead of VGW:** TGW adds its own hourly attachment charge plus a separate per-GB data-processing charge, on top of the VPN connection's own hourly rate — costs stack in a way they don't with the simpler VGW setup used here.
