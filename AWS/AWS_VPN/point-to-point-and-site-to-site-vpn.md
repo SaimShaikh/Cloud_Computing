@@ -1,6 +1,6 @@
-# Point-to-Point VPN vs Site-to-Site VPN — Complete Guide
+# Point-to-Point, Point-to-Site, and Site-to-Site VPN — Complete Guide
 
-A plain-language, no-gaps reference covering the concept of VPN connectivity, how Point-to-Point differs from Site-to-Site, and how AWS implements Site-to-Site VPN as a managed service — including every component, billing variable, and the trade-offs of each approach.
+A plain-language, no-gaps reference covering the concept of VPN connectivity, the three ways networks and devices connect over one, and how AWS implements Site-to-Site VPN as a managed service — including every component, billing variable, and the trade-offs of each approach.
 
 ---
 
@@ -11,7 +11,7 @@ You run a company with:
 - Some workloads now live in an **AWS VPC**.
 - The two sides need to talk to each other **privately**, over the **public internet**, without exposing anything publicly, and without waiting weeks for a leased line.
 
-This is the exact problem VPNs solve. The question is *which kind* of VPN fits your topology — one office reaching one destination (Point-to-Point), or many private networks reaching each other in a mesh or hub (Site-to-Site).
+This is the exact problem VPNs solve. The question is *which kind* of VPN fits your topology — a fixed link between exactly two endpoints (Point-to-Point), a single remote device reaching into a network (Point-to-Site), or many private networks reaching each other in a mesh or hub (Site-to-Site).
 
 ---
 
@@ -45,7 +45,109 @@ VPNs are built on protocols like **IPsec** (IKE for key exchange, ESP for encryp
 
 ---
 
-## 4. Site-to-Site VPN — what it is
+## 4. Point-to-Site VPN — what it is
+
+**Point-to-Site VPN (P2S VPN)** connects **a single device (client) to an entire private network (site)** — the client gets a private IP address from the VPN server, and from that point on it can reach resources inside the target network as if it were physically plugged in.
+
+This is the most common VPN pattern for **remote workers**: an employee on a laptop at home runs a VPN client, connects to the company's VPN endpoint, and their machine can now reach internal servers, databases, and services that are not exposed to the public internet at all.
+
+**Key traits:**
+- One side is always a **single device** (the client — laptop, phone, VM).
+- The other side is a **network with a VPN endpoint/server** (the "site").
+- The client needs to install and run **VPN client software** — nothing happens automatically.
+- Each device that wants access must connect individually — there is no shared gateway that covers an entire office.
+- The connection is usually **on-demand**: the user opens the VPN client, authenticates, the tunnel comes up, and it drops when the client disconnects.
+- Scales by adding more client licences/connections on the server side — not by adding gateway devices.
+
+**How it works — step by step:**
+
+```
+Remote Laptop (Client)                Public Internet            VPN Endpoint (Server / Site)
+──────────────────────                ───────────────            ────────────────────────────
+
+1. User opens VPN client app
+2. Client sends IKE/TLS handshake ──────────────────────────▶  VPN server authenticates
+3. Server assigns client a VIP:  ◀──────────────────────────   e.g. 172.16.0.50 (virtual IP)
+4. Tunnel established
+
+Now:
+Laptop (192.168.1.20) ──[encrypted tunnel]──▶ VPN Server ──▶ Internal DB (10.0.2.30)
+
+From the DB's perspective, the request came from 172.16.0.50 — it looks
+like an internal address, not a remote laptop on the public internet.
+```
+
+**Authentication options:**
+
+| Method | How it works | Strength |
+|---|---|---|
+| Username + Password | User provides credentials at connect time | Basic — weakest alone |
+| Certificate (mutual TLS) | Client presents a certificate issued by your CA | Strong — no passwords |
+| MFA (SAML / OIDC) | Integrates with an Identity Provider (Okta, Azure AD, etc.) | Strongest — phishing-resistant |
+| Combined (cert + MFA) | Certificate AND identity provider login | Enterprise standard |
+
+**Split tunnelling vs full tunnelling:**
+
+```
+Full tunnel (all traffic goes through VPN):
+  Laptop ──[ALL traffic via VPN]──▶ VPN Server ──▶ internet + internal resources
+  Benefit: Company controls all traffic, sees everything.
+  Downside: Slower for the user (all YouTube traffic goes through corporate too).
+
+Split tunnel (only internal traffic goes through VPN):
+  Internal resources (10.0.0.0/16) ──[via VPN]──▶ VPN Server ──▶ Internal resources
+  Internet traffic (0.0.0.0/0)     ──[direct]──▶  ISP ──▶ Internet
+  Benefit: Faster for user, less load on VPN server.
+  Downside: Company doesn't see or control internet browsing.
+```
+
+**AWS implementation — AWS Client VPN:**
+
+AWS Client VPN is AWS's managed Point-to-Site service. Key facts:
+
+| Property | Detail |
+|---|---|
+| **Protocol** | OpenVPN (TLS-based) — not IPsec |
+| **Client software** | AWS-provided OpenVPN-compatible client, or any standard OpenVPN client |
+| **Authentication** | Active Directory, SAML (Okta, Azure AD), certificate-based, or combined |
+| **Endpoint attachment** | Client VPN endpoint attaches to a VPC — clients get routed into subnets |
+| **Split tunnelling** | Supported — you define which routes go through the tunnel |
+| **Authorization rules** | CIDR-level access rules per user group — Group A can reach 10.0.1.0/24, Group B cannot |
+| **Logging** | Connection logs to CloudWatch — who connected, when, from what IP |
+| **Billing** | Per endpoint-subnet association per hour + per active client connection per hour |
+
+**AWS Client VPN architecture:**
+
+```
+Remote Laptop                Public Internet                      AWS
+──────────────                ───────────────               ──────────────────────────────────
+                                                            │   Client VPN Endpoint            │
+┌──────────────┐                                           │   (attached to VPC subnet)        │
+│ OpenVPN      │──────────── TLS tunnel ──────────────────▶│                                  │
+│ client app   │                                           │   Authorization rules:            │
+│ (AWS-provided│                                           │   - Devs → 10.0.1.0/24 (allowed) │
+│  or OpenVPN) │                                           │   - Finance → 10.0.2.0/24 only   │
+└──────────────┘                                           └──────────────┬───────────────────┘
+Assigned VIP: 172.16.0.5                                                  │
+                                                                          ▼
+                                                           ┌──────────────────────────────────┐
+                                                           │  VPC (10.0.0.0/16)               │
+                                                           │  ┌──────────┐  ┌──────────────┐  │
+                                                           │  │ Dev EC2  │  │ Finance RDS  │  │
+                                                           │  │10.0.1.10 │  │ 10.0.2.20   │  │
+                                                           │  └──────────┘  └──────────────┘  │
+                                                           └──────────────────────────────────┘
+```
+
+**Typical use cases:**
+- Developers working remotely who need SSH access to private EC2 instances
+- Finance team accessing RDS databases that have no public endpoint
+- IT admins managing internal AWS resources without bastion hosts
+- Third-party contractors who need scoped, time-limited access to specific subnets
+
+---
+
+## 5. Site-to-Site VPN — what it is
 
 **Site-to-Site VPN (S2S VPN)** connects **entire networks to entire networks** — not a single device, but every host on one private network to every host on another, transparently, through gateways that sit at the edge of each network.
 
@@ -55,20 +157,23 @@ VPNs are built on protocols like **IPsec** (IKE for key exchange, ESP for encryp
 - Terminated by **gateway devices** on each side (a router/firewall on-prem, a managed gateway in AWS), not by end-user software.
 - Scales to many sites — this is what lets a company connect 10 branch offices to one AWS VPC, or connect several VPCs and several on-prem sites together via a hub.
 
-**Point-to-Point vs Site-to-Site, side by side:**
+**All three types — side by side:**
 
-| | Point-to-Point VPN | Site-to-Site VPN |
-|---|---|---|
-| Connects | One device ↔ one network, or one site ↔ one site | Entire network ↔ entire network |
-| Who initiates | End-user client software | Gateway devices (routers/firewalls) |
-| Scale | Single relationship | Can scale to many sites (hub-and-spoke) |
-| AWS equivalent | AWS Client VPN | AWS Site-to-Site VPN |
-| Typical user | Remote employee, single branch | Whole offices, data centers, multi-site enterprises |
-| Routing complexity | Minimal — one path | Needs route tables / BGP across all sites |
+| | Point-to-Point VPN | Point-to-Site VPN | Site-to-Site VPN |
+|---|---|---|---|
+| **Connects** | One device/site ↔ one destination | One device ↔ one network | Entire network ↔ entire network |
+| **Who initiates** | Client software or gateway | Client software (per device) | Gateway devices (automatic) |
+| **Client software needed?** | Yes (on the single device) | Yes (on every remote device) | No — gateway handles it for all hosts |
+| **Scale** | One fixed relationship | Many users, one site | Many sites, many networks |
+| **AWS equivalent** | AWS Client VPN (one endpoint) | AWS Client VPN | AWS Site-to-Site VPN |
+| **Typical user** | Remote employee, single branch | Remote employees, contractors | Whole offices, data centers |
+| **Routing complexity** | Minimal | Moderate (split tunnel rules, auth rules) | High (route tables, BGP across sites) |
+| **Authentication** | PSK / cert / user+pass | Certificate + MFA (user-centric) | PSK / cert (device-centric, no per-user auth) |
+| **Connection persistence** | On-demand or persistent | On-demand (user initiates) | Always-on (gateway keeps tunnel up) |
 
 ---
 
-## 5. Why use a VPN over a public, unencrypted connection
+## 6. Why use a VPN over a public, unencrypted connection
 
 - **No new physical circuit** — runs over your existing internet connection.
 - **Encryption in transit** — meets most compliance baselines for data crossing a public network.
@@ -78,12 +183,12 @@ VPNs are built on protocols like **IPsec** (IKE for key exchange, ESP for encryp
 
 ---
 
-## 6. AWS services involved
+## 7. AWS services involved
 
 | Service | What it's for |
 |---|---|
 | **AWS Site-to-Site VPN** | The core managed IPsec VPN service — connects an on-prem network (or another cloud) to a VPC or Transit Gateway. |
-| **AWS Client VPN** | The Point-to-Point equivalent — lets individual users' devices connect securely into a VPC using an OpenVPN-based client. |
+| **AWS Client VPN** | The Point-to-Site service — lets individual users' devices (laptops, phones) connect securely into a VPC using an OpenVPN-compatible client. Supports certificate, Active Directory, and SAML/MFA authentication. |
 | **Virtual Private Gateway (VGW)** | The original AWS-side VPN endpoint, attached to a single VPC. |
 | **Transit Gateway (TGW)** | A newer, more scalable AWS-side endpoint — terminates VPN connections and fans them out to many attached VPCs, other VPNs, and Direct Connect at once. |
 | **AWS Direct Connect** | Not a VPN — a dedicated private physical circuit. Often combined *with* Site-to-Site VPN (as a backup path, or to encrypt traffic over DX itself via VPN-over-DX). |
@@ -91,7 +196,7 @@ VPNs are built on protocols like **IPsec** (IKE for key exchange, ESP for encryp
 
 ---
 
-## 7. Components of an AWS Site-to-Site VPN connection
+## 8. Components of an AWS Site-to-Site VPN connection
 
 | Component | Role |
 |---|---|
@@ -108,7 +213,7 @@ VPNs are built on protocols like **IPsec** (IKE for key exchange, ESP for encryp
 
 ---
 
-## 8. How it fits together (architecture)
+## 9. How it fits together (architecture)
 
 ```
 On-premises                          Public Internet                    AWS
@@ -134,7 +239,7 @@ Both tunnels are active endpoints from AWS's side — either can carry traffic. 
 
 ---
 
-## 9. Billing variables — what actually costs money
+## 10. Billing variables — what actually costs money
 
 This is the part people miss until the bill arrives. Breaking it down:
 
@@ -146,14 +251,15 @@ This is the part people miss until the bill arrives. Breaking it down:
 | **Transit Gateway — data processing charge** | Per GB processed through the TGW | Separate from the VPN's own per-GB charge if you route through TGW — the same byte can be billed once for VPN processing and again for TGW processing. |
 | **Data transfer OUT to the internet** | Standard AWS data-transfer-out rates | Only applies where relevant — the VPN tunnel traffic itself isn't "internet egress" in the traditional sense, but check your architecture for any double-hop scenarios. |
 | **VGW** | No separate hourly charge for the VGW resource itself (unlike TGW) | The VPN connection's hourly rate is the main cost when using VGW. |
-| **Client VPN (Point-to-Point) — endpoint hourly charge** | Per VPN endpoint association, per hour | Separate pricing model from Site-to-Site — billed per subnet association plus a per-connection hourly rate. |
+| **Client VPN (Point-to-Site) — endpoint association hourly charge** | Per Client VPN endpoint subnet association, per hour | Each subnet you associate the endpoint with costs an hourly fee — independent of how many users are connected. |
+| **Client VPN (Point-to-Site) — active connection hourly charge** | Per active client connection, per hour | A second, separate hourly charge per connected user — the more simultaneous remote workers, the higher this cost. |
 | **CloudWatch charges** | Standard CloudWatch metrics/alarms pricing | Small, but adds up if you're polling tunnel state frequently or storing custom metrics. |
 
 **Practical implication:** a VPN connection you forgot to delete after a test still bills hourly, even with zero traffic. Always check `describe-vpn-connections` before assuming cost is zero.
 
 ---
 
-## 10. Advantages
+## 11. Advantages
 
 - **Fast to provision** — a working tunnel in hours, no physical circuit needed.
 - **Encrypted by default** — IPsec protects data in transit without extra effort.
@@ -163,7 +269,7 @@ This is the part people miss until the bill arrives. Breaking it down:
 - **Works over any existing internet connection** — no ISP coordination required beyond what you already have.
 - **BGP support** gives automatic failover between tunnels without manual scripting.
 
-## 11. Disadvantages
+## 12. Disadvantages
 
 - **Throughput ceiling** — each individual tunnel is capped (historically around 1.25 Gbps per tunnel); high-throughput workloads need Direct Connect, ECMP across multiple VPN connections, or ECMP with TGW.
 - **Variable latency and jitter** — it's still riding the public internet, so performance isn't guaranteed like a dedicated circuit.
@@ -175,61 +281,5 @@ This is the part people miss until the bill arrives. Breaking it down:
 
 ---
 
-## 12. Common edge cases and gotchas
 
-| Situation | What actually happens |
-|---|---|
-| CIDR overlap between on-prem and VPC | Routing breaks — VPN doesn't NAT by default, so both sides must use non-overlapping CIDR ranges. |
-| Only one tunnel configured on-prem | You lose the redundancy AWS designed in — always terminate both tunnels if your router supports it. |
-| Static routing, no failover script | If the active tunnel drops, traffic simply stops until someone notices and manually intervenes. |
-| VPC route table missing the on-prem route | Outbound reaches on-prem fine, but return traffic has nowhere to go — looks like a one-way connectivity issue. |
-| Security groups too restrictive | Tunnel shows UP in both consoles, but application traffic still fails — always double-check SGs/NACLs separately from tunnel status. |
-| Forgetting to delete test VPN connections | Hourly billing continues even with zero data flowing. |
-| Mixing VGW and TGW in the same account without a clear reason | Adds architectural complexity and possible duplicate billing paths — pick one model per environment. |
 
----
-
-## 13. Interview-style Q&A
-
-**Q: What's the fundamental difference between Point-to-Point and Site-to-Site VPN?**
-A: Point-to-Point connects a single device or single site to one destination; Site-to-Site connects entire networks to entire networks via gateways, so any host on either side can reach any host on the other without per-device client software.
-
-**Q: Why does AWS create two tunnels per VPN connection?**
-A: For redundancy — the two tunnels terminate in different Availability Zones on the AWS side, so an AZ-level issue on AWS's end doesn't take down connectivity if the on-prem router is configured to use both.
-
-**Q: What's the difference between VGW and TGW as a VPN endpoint?**
-A: VGW attaches to exactly one VPC and has no separate hourly charge. TGW is a standalone routing hub that can terminate many VPN connections, VPC attachments, and Direct Connect connections at once, but it adds its own hourly attachment and data-processing charges.
-
-**Q: Static vs BGP routing — when would you choose each?**
-A: Static routing is simpler for a small, fixed set of CIDRs and doesn't require BGP-capable hardware, but requires manual failover. BGP is preferred whenever the on-prem router supports it, since it gives automatic failover between tunnels and can propagate route changes without reconfiguration.
-
-**Q: What causes a VPN connection to bill even when idle?**
-A: The hourly charge is for the *existence* of the VPN connection resource, not for traffic — it accrues regardless of tunnel state or data volume.
-
-**Q: How would you troubleshoot a tunnel that's UP but an application still can't connect?**
-A: Check in order: VPC route table has the on-prem CIDR pointed at the VGW/TGW; security groups and NACLs allow the traffic; the on-prem firewall isn't blocking return traffic; and confirm there's no CIDR overlap causing silent routing conflicts.
-
----
-
-## 14. Cheat sheet
-
-- **P2P VPN** = one device/site ↔ one destination → AWS Client VPN.
-- **S2S VPN** = network ↔ network via gateways → AWS Site-to-Site VPN.
-- Every AWS VPN connection = **2 tunnels**, 2 AZs, for redundancy.
-- **VGW** = simple, one VPC, no separate hourly fee.
-- **TGW** = scalable, many VPCs/VPNs, has its own hourly + data fee.
-- **BGP > static** for automatic failover.
-- CIDRs on both sides must **not overlap**.
-- Billing = **VPN hourly** + **per-GB processed** + (**TGW hourly** + **TGW per-GB**, if used).
-- A tunnel showing UP doesn't guarantee the application works — check route tables and security groups separately.
-
----
-
-## 15. Mastery checklist
-
-- [ ] Can explain P2P vs S2S VPN to a non-technical stakeholder in two sentences.
-- [ ] Can draw the AWS Site-to-Site VPN architecture from memory (CGW, tunnels, VGW/TGW, route table, subnet).
-- [ ] Knows every billing line item and can estimate monthly cost for a given topology.
-- [ ] Can list the difference between VGW-based and TGW-based designs, and when to pick each.
-- [ ] Knows why two tunnels exist and what BGP adds over static routing.
-- [ ] Can troubleshoot "tunnel UP, app still failing" without guessing.
