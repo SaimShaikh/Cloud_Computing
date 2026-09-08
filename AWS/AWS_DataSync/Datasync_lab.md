@@ -1,5 +1,5 @@
-# 🧪 AWS DataSync Lab (FINAL) — On-Prem (EC2-Simulated) NFS → S3
-### Matches the current DataSync console wizard exactly — Aug 2026
+# 🧪 AWS DataSync  — On-Prem (EC2-Simulated) NFS → S3
+
 
 ---
 
