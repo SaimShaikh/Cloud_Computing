@@ -768,3 +768,510 @@ When you're done with the TGW lab, delete in exactly this order:
 8. **Delete subnets, route tables, Internet Gateway** (detach first), then **delete VPC-A and VPC-B** (and VPC-C if created).
 
 > ⏱️ The TGW itself can take 3–5 minutes to fully delete after you confirm. If you try to delete the Customer Gateway before TGW deletion finishes, it may fail — wait for TGW state to reach `deleted` first.
+
+---
+
+## Part 8 — Practical Runbook: Remove VGW, Connect VPN to Transit Gateway
+
+> This is a focused, action-first guide. No theory — just exactly what to click, what to type, and what to check at each stage.  
+> **All AWS Console steps are in Mumbai (ap-south-1) unless stated otherwise.**
+
+---
+
+### What you're changing
+
+```
+BEFORE (what you built in Parts 1–6):
+
+  EC2-B ──[IPsec Tunnel 1]──┐
+                             ├──► VGW-A ──► VPC-A ──► EC2-A
+  EC2-B ──[IPsec Tunnel 2]──┘
+  
+  Problem: VGW-A is glued to VPC-A only.
+           Add VPC-C later? Need a whole new VGW + new VPN connection.
+
+
+AFTER (what this runbook builds):
+
+  EC2-B ──[IPsec Tunnel 1]──┐
+                             ├──► TGW-Lab ──┬──► VPC-A ──► EC2-A
+  EC2-B ──[IPsec Tunnel 2]──┘              └──► (any future VPC, zero extra VPN)
+  
+  VGW-A: gone.
+  VPN connection: re-created, now points at TGW instead of VGW.
+```
+
+---
+
+### Stage 1 — Remove the old VGW setup (4 actions)
+
+Do these in order — AWS blocks deletion if dependencies still exist.
+
+---
+
+**Action 1 — Delete the old VPN Connection**
+
+```
+Console path:
+  VPC → Site-to-Site VPN Connections
+  → select: VPN-A-to-B
+  → Actions → Delete VPN Connection
+  → type "delete" in the confirmation box → Delete
+```
+
+- State will briefly show `deleting` then disappear from the list.
+- ⏱️ Takes about 60 seconds.
+- Both IPsec tunnels drop immediately — EC2-B loses connectivity to VPC-A from this moment.
+
+> ✅ Done when: `VPN-A-to-B` is no longer listed in Site-to-Site VPN Connections.
+
+---
+
+**Action 2 — Detach the VGW from VPC-A**
+
+```
+Console path:
+  VPC → Virtual Private Gateways
+  → select: VGW-A
+  → Actions → Detach from VPC
+  → confirm detachment
+```
+
+- State changes: `attached` → `detaching` → `detached`
+- ⏱️ Takes about 30–60 seconds.
+
+> ✅ Done when: State column shows `detached`.
+
+---
+
+**Action 3 — Delete the VGW**
+
+```
+Console path:
+  VPC → Virtual Private Gateways
+  → select: VGW-A  (must be in "detached" state)
+  → Actions → Delete Virtual Private Gateway
+  → confirm
+```
+
+> ✅ Done when: `VGW-A` is gone from the list.
+
+---
+
+**Action 4 — Clean up the stale route in VPC-A's route table**
+
+The old VGW left a broken route entry pointing at a gateway that no longer exists.
+
+```
+Console path:
+  VPC → Route Tables
+  → find the route table associated with subnet: VPC-A-private
+  → Routes tab → Edit routes
+  → find row:  Destination 10.200.0.0/16 | Target vgw-xxxxxxxx
+  → click the X (delete) on that row
+  → Save changes
+```
+
+> ✅ Done when: No route with target `vgw-...` exists in VPC-A-private's route table.
+
+---
+
+### Stage 2 — Build the Transit Gateway (3 actions)
+
+---
+
+**Action 5 — Create the Transit Gateway**
+
+```
+Console path:
+  VPC → Transit Gateways → Create Transit Gateway
+```
+
+Fill in exactly these fields:
+
+| Field | Value | Why |
+|---|---|---|
+| Name tag | `TGW-Lab` | Identification |
+| Amazon side ASN | `64512` (leave default) | Fine for static routing |
+| DNS support | ✅ Enabled | Allows DNS resolution across VPCs |
+| VPN ECMP support | ✅ Enabled | Future-proofs for active-active if you add BGP |
+| Default route table association | ✅ Enabled | Auto-associates new attachments — saves manual work |
+| Default route table propagation | ✅ Enabled | Auto-propagates routes between attachments — this is the magic |
+| Multicast support | Disabled | Not needed |
+
+Click **Create Transit Gateway**.
+
+⏱️ State goes `pending` → `available`. Wait here — takes **2–3 minutes**. Keep refreshing.  
+Do NOT proceed to Action 6 until state is `available`.
+
+> ✅ Done when: TGW-Lab shows State = `available`.
+
+---
+
+**Action 6 — Attach VPC-A to the Transit Gateway**
+
+This puts a TGW "door" inside VPC-A so traffic from EC2-A can exit toward the TGW.
+
+```
+Console path:
+  VPC → Transit Gateway Attachments → Create Transit Gateway Attachment
+```
+
+| Field | Value |
+|---|---|
+| Transit Gateway ID | `TGW-Lab` |
+| Attachment type | `VPC` |
+| VPC ID | `VPC-A` |
+| Subnet IDs | `VPC-A-private` ← the subnet where EC2-A lives |
+| DNS support | Enabled |
+
+Click **Create Transit Gateway Attachment**.
+
+⏱️ State: `pending` → `available`. Takes 1–2 minutes.
+
+> ✅ Done when: the VPC-A attachment shows State = `available`.
+
+Behind the scenes, TGW:
+- Placed a network interface (ENI) inside `VPC-A-private`
+- Automatically added a route `10.100.0.0/16 → VPC-A attachment` into its own default route table (because you enabled propagation in Action 5)
+
+---
+
+**Action 7 — Create the new VPN Connection, this time targeting TGW**
+
+```
+Console path:
+  VPC → Site-to-Site VPN Connections → Create VPN Connection
+```
+
+| Field | Value | Note |
+|---|---|---|
+| Name | `VPN-TGW-to-B` | |
+| **Target gateway type** | **Transit Gateway** | ← Only change vs original setup |
+| Transit Gateway | `TGW-Lab` | |
+| Customer Gateway | Existing → `CGW-EC2-B` | Same CGW as before — EC2-B's Elastic IP unchanged |
+| Routing options | Static | |
+| Static IP prefixes | `10.200.0.0/16` | The on-prem / VPC-B CIDR |
+| Tunnel options | Amazon generated | Let AWS choose PSKs and inside CIDRs |
+
+Click **Create VPN Connection**.
+
+⏱️ State: `pending` → `available` (1–2 min). Tunnels will show `DOWN` — that's expected until EC2-B is reconfigured.
+
+**Immediately after creation — download the new config file:**
+```
+Select VPN-TGW-to-B → Download Configuration
+Vendor: Libreswan  (or Openswan if Libreswan isn't listed — same format)
+Platform: (default)
+Software: (default)
+→ Download
+```
+
+Open this file now. You need 4 values from it:
+```
+Tunnel 1 Outside IP  (AWS side):  e.g. 52.66.xxx.xxx   ← write this down
+Tunnel 1 Pre-Shared Key:          e.g. abc123xyz...     ← write this down
+Tunnel 2 Outside IP  (AWS side):  e.g. 35.154.xxx.xxx  ← write this down
+Tunnel 2 Pre-Shared Key:          e.g. def456uvw...     ← write this down
+```
+
+> ⚠️ These are NEW values. The old PSKs and old AWS IPs no longer exist — the deleted VPN connection took them with it. Using old values = tunnels will never come up.
+
+> ✅ Done when: VPN-TGW-to-B is `available` and you have the 4 values noted.
+
+---
+
+### Stage 3 — Update route tables (2 actions)
+
+---
+
+**Action 8 — Point VPC-A's route table at TGW**
+
+```
+Console path:
+  VPC → Route Tables
+  → select the route table for subnet: VPC-A-private
+  → Routes tab → Edit routes → Add route
+```
+
+| Destination | Target |
+|---|---|
+| `10.200.0.0/16` | Transit Gateway → `TGW-Lab` |
+
+Save changes.
+
+**VPC-A-private route table should now look like:**
+
+```
+┌─────────────────────┬──────────────────────────────────┐
+│ Destination         │ Target                           │
+├─────────────────────┼──────────────────────────────────┤
+│ 10.100.0.0/16       │ local                            │
+│ 10.200.0.0/16       │ tgw-xxxxxxxxxxxxxxxxxxxx ✅      │
+└─────────────────────┴──────────────────────────────────┘
+```
+
+> ✅ Done when: `10.200.0.0/16 → tgw-xxx` appears in the Routes tab.
+
+---
+
+**Action 9 — Verify the TGW route table (no editing needed — just confirm)**
+
+```
+Console path:
+  VPC → Transit Gateway Route Tables
+  → select the default TGW route table (created automatically with TGW-Lab)
+  → Routes tab
+```
+
+You should already see both routes auto-populated (from the propagation setting):
+
+```
+┌──────────────────────┬────────────────────────────────┬────────────┐
+│ CIDR                 │ Attachment                     │ Type       │
+├──────────────────────┼────────────────────────────────┼────────────┤
+│ 10.100.0.0/16        │ VPC-A attachment               │ propagated │
+│ 10.200.0.0/16        │ VPN-TGW-to-B attachment        │ propagated │
+└──────────────────────┴────────────────────────────────┴────────────┘
+```
+
+If either route is missing, see the Troubleshooting section below.
+
+> ✅ Done when: both CIDRs are in the TGW route table.
+
+---
+
+### Stage 4 — Reconfigure Libreswan on EC2-B (5 commands)
+
+EC2-B still has the config from the old deleted VPN connection. Update it with the new tunnel IPs and PSKs.
+
+**SSH into EC2-B (N. Virginia):**
+
+```bash
+ssh -i your-key.pem ec2-user@<EC2-B public IP or Elastic IP>
+```
+
+---
+
+**Command 1 — Stop the IPsec service**
+
+```bash
+sudo systemctl stop ipsec
+```
+
+---
+
+**Command 2 — Replace the tunnel config file**
+
+Replace `<values>` with what you wrote down from the downloaded config file:
+
+```bash
+sudo tee /etc/ipsec.d/aws-vpn.conf << 'EOF'
+conn Tunnel1
+  authby=secret
+  auto=start
+  left=%defaultroute
+  leftid=<EC2-B Elastic IP>
+  right=<Tunnel 1 AWS outside IP>
+  type=tunnel
+  ikelifetime=8h
+  keylife=1h
+  phase2alg=aes128-sha1;modp1024
+  ike=aes128-sha1;modp1024
+  keyingtries=%forever
+  leftsubnet=10.200.0.0/16
+  rightsubnet=10.100.0.0/16
+  dpddelay=10
+  dpdtimeout=30
+  dpdaction=restart_by_peer
+
+conn Tunnel2
+  authby=secret
+  auto=start
+  left=%defaultroute
+  leftid=<EC2-B Elastic IP>
+  right=<Tunnel 2 AWS outside IP>
+  type=tunnel
+  ikelifetime=8h
+  keylife=1h
+  phase2alg=aes128-sha1;modp1024
+  ike=aes128-sha1;modp1024
+  keyingtries=%forever
+  leftsubnet=10.200.0.0/16
+  rightsubnet=10.100.0.0/16
+  dpddelay=10
+  dpdtimeout=30
+  dpdaction=restart_by_peer
+EOF
+```
+
+---
+
+**Command 3 — Replace the secrets file**
+
+```bash
+sudo tee /etc/ipsec.secrets << 'EOF'
+<EC2-B Elastic IP> <Tunnel 1 AWS outside IP>: PSK "<Tunnel 1 Pre-Shared Key>"
+<EC2-B Elastic IP> <Tunnel 2 AWS outside IP>: PSK "<Tunnel 2 Pre-Shared Key>"
+EOF
+```
+
+> ⚠️ The PSK must be inside double quotes exactly as shown. No spaces before or after the quotes.
+
+---
+
+**Command 4 — Start the IPsec service**
+
+```bash
+sudo systemctl start ipsec
+```
+
+---
+
+**Command 5 — Watch tunnel negotiation happen live**
+
+```bash
+sudo journalctl -u ipsec -f
+```
+
+Within 30–60 seconds you should see lines like:
+
+```
+"Tunnel1" #1: IKE SA established ...
+"Tunnel1" #2: IPsec SA established tunnel mode ...
+```
+
+Press `Ctrl+C` to exit the log stream once you see "IPsec SA established".
+
+---
+
+### Stage 5 — Verify end-to-end (3 checks)
+
+---
+
+**Check 1 — AWS Console: tunnel status**
+
+```
+Console path:
+  VPC → Site-to-Site VPN Connections
+  → select: VPN-TGW-to-B
+  → Tunnel Details tab
+```
+
+Expected:
+
+```
+Tunnel 1:  Status = UP  ✅   Last change: just now
+Tunnel 2:  Status = UP  ✅   (or DOWN/standby — one UP is enough for traffic)
+```
+
+---
+
+**Check 2 — EC2-B: ipsec status**
+
+```bash
+sudo ipsec status
+```
+
+Look for:
+
+```
+Total IPsec connections: 2
+...
+"Tunnel1": 1 tunnels up    ✅
+"Tunnel2": 1 tunnels up    ✅
+```
+
+---
+
+**Check 3 — Ping EC2-A from EC2-B through the tunnel**
+
+```bash
+# EC2-A's private IP — find it in EC2 console → EC2-A → Private IPv4 address
+ping -c 4 10.100.0.X
+```
+
+Expected:
+
+```
+PING 10.100.0.X (10.100.0.X) 56(84) bytes of data.
+64 bytes from 10.100.0.X: icmp_seq=1 ttl=254 time=28.4 ms  ✅
+64 bytes from 10.100.0.X: icmp_seq=2 ttl=254 time=27.9 ms  ✅
+```
+
+If ping works → **migration complete**. The traffic path is now:
+
+```
+EC2-B
+  → [IPsec encrypt]
+  → public internet
+  → TGW VPN endpoint (AWS side)
+  → TGW internal routing
+  → TGW ENI inside VPC-A-private
+  → EC2-A
+```
+
+---
+
+### Troubleshooting — if something isn't working
+
+Work through these in order. Each check rules out a full category of problem.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Problem                    │  Where to check           │  What to fix       │
+├──────────────────────────────┼───────────────────────────┼────────────────────┤
+│ Both tunnels still DOWN      │ EC2-B: journalctl -u ipsec│ PSK mismatch:      │
+│                              │                           │ re-check ipsec.    │
+│                              │                           │ secrets has correct │
+│                              │                           │ new PSK            │
+│                              │                           │                    │
+│                              │ EC2-B-SG in N. Virginia   │ UDP 500, UDP 4500, │
+│                              │                           │ ESP (proto 50) must│
+│                              │                           │ be open inbound    │
+│                              │                           │                    │
+│                              │ CGW in AWS console        │ IP must exactly    │
+│                              │                           │ match EC2-B's EIP  │
+├──────────────────────────────┼───────────────────────────┼────────────────────┤
+│ Tunnel UP, ping fails        │ VPC-A-private route table │ Must have:         │
+│                              │                           │ 10.200.0.0/16      │
+│                              │                           │ → tgw-xxx  (not    │
+│                              │                           │   vgw or missing)  │
+│                              │                           │                    │
+│                              │ TGW route table → Routes  │ Must have both:    │
+│                              │                           │ 10.100.0.0/16 and  │
+│                              │                           │ 10.200.0.0/16      │
+│                              │                           │                    │
+│                              │ EC2-A security group      │ Allow ICMP from    │
+│                              │                           │ 10.200.0.0/16      │
+├──────────────────────────────┼───────────────────────────┼────────────────────┤
+│ TGW route table missing      │ TGW attachment state      │ Must be "available"│
+│ 10.100.0.0/16                │                           │ not "pending"      │
+│                              │                           │                    │
+│                              │ RT propagation settings   │ VPC-A attachment   │
+│                              │                           │ must be listed as  │
+│                              │                           │ propagating to RT  │
+├──────────────────────────────┼───────────────────────────┼────────────────────┤
+│ "Resource in use" when       │ VPN Connection deleted?   │ Delete VPN first,  │
+│ deleting VGW                 │                           │ THEN detach VGW,   │
+│                              │                           │ THEN delete VGW    │
+└──────────────────────────────┴───────────────────────────┴────────────────────┘
+```
+
+---
+
+### Summary — what changed and what stayed the same
+
+| Component | Before (VGW) | After (TGW) | Changed? |
+|---|---|---|---|
+| **Customer Gateway** (`CGW-EC2-B`) | ✅ Exists | ✅ Same, unchanged | ❌ No change |
+| **EC2-B Elastic IP** | ✅ In use | ✅ Same IP | ❌ No change |
+| **VPN Connection** | `VPN-A-to-B` → target VGW | `VPN-TGW-to-B` → target TGW | ✅ Recreated |
+| **AWS outside IPs (tunnel endpoints)** | Old IPs | Brand new IPs | ✅ Changed |
+| **Pre-shared keys** | Old PSKs | Brand new PSKs | ✅ Changed |
+| **VGW** (`VGW-A`) | ✅ Attached to VPC-A | ❌ Deleted | ✅ Removed |
+| **Transit Gateway** | ❌ Did not exist | ✅ `TGW-Lab` created | ✅ New |
+| **VPC-A route table** | `10.200.0.0/16 → vgw-...` | `10.200.0.0/16 → tgw-...` | ✅ Updated |
+| **EC2-B Libreswan config** | Old IPs + PSKs | New IPs + PSKs | ✅ Updated |
+| **EC2-A** | No change needed | No change needed | ❌ No change |
+| **VPC-B / EC2-B networking** | No change needed | No change needed | ❌ No change |
