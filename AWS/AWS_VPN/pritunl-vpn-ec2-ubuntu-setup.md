@@ -6,36 +6,8 @@ Pritunl is a self-hosted, open-source VPN server with a web-based management con
 
 ## Part 1 — Understand the architecture first
 
-```
-                              Internet
-                                  │
-                                  │  HTTPS :443 (web console, admin only)
-                                  │  UDP :1194 (OpenVPN tunnel, or your chosen port)
-                                  ▼
-                    ┌─────────────────────────────┐
-                    │   EC2 instance (Ubuntu)       │
-                    │   Elastic IP (fixed)           │
-                    │                                │
-                    │   ┌───────────────────────┐    │
-                    │   │ Pritunl (web console + │    │
-                    │   │ VPN server process)    │    │
-                    │   └───────────┬───────────┘    │
-                    │               │ reads/writes    │
-                    │   ┌───────────▼───────────┐    │
-                    │   │ MongoDB (local)        │    │
-                    │   │ stores orgs, users,    │    │
-                    │   │ servers, certificates  │    │
-                    │   └───────────────────────┘    │
-                    └─────────────────────────────┘
-                                  ▲
-                                  │ encrypted VPN tunnel
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │  Your laptop / phone        │
-                    │  running the Pritunl client │
-                    │  imports a .ovpn profile     │
-                    └────────────────────────────┘
-```
+<img width="1167" height="1347" alt="image" src="https://github.com/user-attachments/assets/1c55735c-3670-4bfa-91dc-ac45977505a1" />
+
 
 **What each piece is doing, in plain terms:**
 
