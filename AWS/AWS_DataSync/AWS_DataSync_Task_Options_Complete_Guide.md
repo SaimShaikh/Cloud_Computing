@@ -1,4 +1,4 @@
-# AWS DataSync Task Options --- Complete Guide
+# AWS DataSync Task Options
 
 ## 1. What is AWS DataSync?
 
