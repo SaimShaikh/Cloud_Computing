@@ -1429,220 +1429,22 @@ backup-old.txt
 
 If `backup-old.txt` isn't in the source:
 
-``` text
-Keep deleted = ON
-```
 
-means:
 
-``` text
-backup-old.txt remains
-```
 
-------------------------------------------------------------------------
 
-# 22. Scenario C --- Destination Must Exactly Follow Source
 
-Use:
 
-``` text
-Transfer mode = Changed
-Keep deleted = OFF
-Overwrite = ON
-```
 
-Conceptually:
 
-``` text
-SOURCE
-  |
-  | authoritative
-  v
-DESTINATION
-```
 
-Source changes should flow to the destination.
 
-Source deletions can also flow to the destination.
 
-------------------------------------------------------------------------
 
-# 23. Scenario D --- One-Time Full Copy
 
-Use:
 
-``` text
-Transfer mode = Transfer all data
-```
 
-Concept:
-
-``` text
-SOURCE
-  |
-  | copy everything
-  v
-DESTINATION
-```
-
-This is different from an incremental synchronization task.
-
-------------------------------------------------------------------------
-
-# 24. Scenario E --- Shared Corporate Network
-
-Suppose:
-
-``` text
-WAN = 1 Gbps
-
-Users + Applications + DataSync
-```
-
-Don't automatically let DataSync consume everything.
-
-Consider:
-
-``` text
-Bandwidth limit = configured limit
-```
-
-Example:
-
-``` text
-DataSync = 200 Mbps
-```
-
-This protects bandwidth for production traffic.
-
-------------------------------------------------------------------------
-
-# 25. Scenario F --- Critical Migration
-
-For an important migration, consider stronger observability:
-
-``` text
-Transfer mode       = Changed / All depending on migration
-Verification        = Verify all data when appropriate
-Task report         = Enabled
-Logging             = TRANSFER
-```
-
-The exact configuration should be based on the migration's requirements
-and the destination storage type.
-
-------------------------------------------------------------------------
-
-# 26. Most Important Interview Questions
-
-## Q1. What is DataSync?
-
-**Answer:**
-
-AWS DataSync is a managed service for transferring and synchronizing
-data between supported storage systems.
-
-------------------------------------------------------------------------
-
-## Q2. What is the difference between Transfer all data and Transfer only data that has changed?
-
-**Answer:**
-
-`Transfer all data` copies all source content without using destination
-comparison to identify changed data.
-
-`Transfer only data that has changed` compares source and destination
-and transfers only data/metadata that differs.
-
-------------------------------------------------------------------------
-
-## Q3. What happens when Keep deleted files is disabled?
-
-**Answer:**
-
-Data that exists in the destination but no longer exists in the source
-can be deleted during the task, allowing the destination to mirror the
-source.
-
-------------------------------------------------------------------------
-
-## Q4. What does Overwrite files do?
-
-**Answer:**
-
-It allows DataSync to replace existing destination data when the source
-version or relevant metadata has changed.
-
-------------------------------------------------------------------------
-
-## Q5. Why copy permissions?
-
-**Answer:**
-
-To preserve filesystem permission behavior so applications and users
-continue to have the expected read/write/execute access.
-
-------------------------------------------------------------------------
-
-## Q6. Why copy ownership?
-
-**Answer:**
-
-To preserve user/group ownership information where supported, which can
-be important for applications and filesystem access.
-
-------------------------------------------------------------------------
-
-## Q7. What is the difference between Verify only transferred data and Verify all data?
-
-**Answer:**
-
-`Verify only transferred data` verifies the data transferred by the
-task.
-
-`Verify all data` verifies the entire source and destination to
-determine whether they are fully synchronized.
-
-------------------------------------------------------------------------
-
-## Q8. What does Queueing do?
-
-**Answer:**
-
-It allows another task execution to wait when a previous execution is
-still running instead of requiring concurrent execution.
-
-------------------------------------------------------------------------
-
-## Q9. What is the difference between DataSync and Storage Gateway?
-
-``` text
-DataSync
-   =
-Move/synchronize data
-
-Storage Gateway
-   =
-Provide hybrid access to AWS-backed storage
-```
-
-------------------------------------------------------------------------
-
-## Q10. What is the difference between DataSync and DMS?
-
-``` text
-DataSync
-   =
-File/object data transfer
-
-DMS
-   =
-Database migration/replication
-```
-
-------------------------------------------------------------------------
-
-# 27. Quick Decision Tree
+Quick Decision Tree
 
 ``` text
 Do I need to move/synchronize files or objects?
@@ -1679,7 +1481,7 @@ Transfer all          Changed only
 
 ------------------------------------------------------------------------
 
-# 28. Final Cheat Sheet
+# Final Cheat Sheet
 
   -----------------------------------------------------------------------
   Option                  Meaning                 If you choose the
@@ -1732,147 +1534,9 @@ Transfer all          Changed only
 
 ------------------------------------------------------------------------
 
-# 29. One-Line Memory Trick
 
-Remember DataSync options in this order:
 
-``` text
-SCAN
-  ↓
-EXCLUDE
-  ↓
-COMPARE
-  ↓
-TRANSFER
-  ↓
-VERIFY
-  ↓
-DESTINATION HANDLING
-  ↓
-METADATA
-  ↓
-QUEUE
-  ↓
-SCHEDULE
-  ↓
-REPORT
-  ↓
-LOGGING
-```
 
-Or simply:
 
-> **What to copy → What changed → Verify → What happens to destination →
-> Preserve metadata → Run/monitor the task.**
 
-------------------------------------------------------------------------
 
-# 30. Your Current Configuration --- Final Verdict
-
-Your current settings are logically consistent for a
-**source-authoritative synchronization task**:
-
-``` text
-Everything
-    +
-No exclusions
-    +
-Changed data only
-    +
-Verify transferred data
-    +
-Use available bandwidth
-    +
-Delete destination data missing from source
-    +
-Overwrite changed destination files
-    +
-Preserve ownership
-    +
-Preserve permissions
-    +
-Preserve timestamps
-    +
-Queue overlapping executions
-```
-
-The biggest things to be careful about are:
-
-### ⚠️ 1. Keep deleted files = OFF
-
-Source deletion can propagate to the destination.
-
-### ⚠️ 2. Overwrite = ON
-
-Source changes can overwrite destination versions.
-
-### ⚠️ 3. Use available bandwidth
-
-DataSync may consume significant available network capacity.
-
-### ⚠️ 4. Schedule
-
-Your task currently says **Not scheduled**, so it is not automatically
-running on a recurring schedule.
-
-### ⚠️ 5. Logging/reporting
-
-You currently have **no task report** and **Basic CloudWatch logging**.
-For important production migrations, stronger reporting/logging may be
-useful.
-
-------------------------------------------------------------------------
-
-## Final mental model
-
-``` text
-             AWS DATASYNC TASK
-
-SOURCE
-  |
-  |-- What to scan?
-  |      └── Everything
-  |
-  |-- What to exclude?
-  |      └── Nothing
-  |
-  |-- What to transfer?
-  |      └── Changed data
-  |
-  |-- How to verify?
-  |      └── Transferred data
-  |
-  |-- How much bandwidth?
-  |      └── Available
-  |
-  |-- What about deleted files?
-  |      └── Delete from destination
-  |
-  |-- What about changed files?
-  |      └── Overwrite destination
-  |
-  |-- Preserve metadata?
-  |      ├── Ownership ✓
-  |      ├── Permissions ✓
-  |      └── Timestamps ✓
-  |
-  |-- What if another execution starts?
-  |      └── Queue it
-  |
-  |-- Automatic schedule?
-  |      └── No
-  |
-  |-- Detailed report?
-  |      └── No
-  |
-  └-- CloudWatch?
-         └── Basic
-                |
-                v
-           DESTINATION
-```
-
-**Bottom line:** your current configuration is essentially saying
-**"Source is the master; keep the destination synchronized with it,
-transfer only differences, preserve filesystem metadata, and propagate
-source deletions/updates."**
