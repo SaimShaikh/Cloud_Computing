@@ -1,4 +1,4 @@
-# Setting Up Pritunl VPN on EC2 Ubuntu — End-to-End Guide
+# Setting Up Pritunl VPN on EC2 Ubuntu 
 
 Pritunl is a self-hosted, open-source VPN server with a web-based management console — it's the practical, real-world version of the **Point-to-Site VPN** concept: individual devices (your laptop, phone) connect into it, and it hands each device a private IP so it can reach whatever network you've configured behind it. This guide installs it on a single Ubuntu EC2 instance, end to end, with every command run separately and explained.
 
@@ -6,36 +6,8 @@ Pritunl is a self-hosted, open-source VPN server with a web-based management con
 
 ## Part 1 — Understand the architecture first
 
-```
-                              Internet
-                                  │
-                                  │  HTTPS :443 (web console, admin only)
-                                  │  UDP :1194 (OpenVPN tunnel, or your chosen port)
-                                  ▼
-                    ┌─────────────────────────────┐
-                    │   EC2 instance (Ubuntu)       │
-                    │   Elastic IP (fixed)           │
-                    │                                │
-                    │   ┌───────────────────────┐    │
-                    │   │ Pritunl (web console + │    │
-                    │   │ VPN server process)    │    │
-                    │   └───────────┬───────────┘    │
-                    │               │ reads/writes    │
-                    │   ┌───────────▼───────────┐    │
-                    │   │ MongoDB (local)        │    │
-                    │   │ stores orgs, users,    │    │
-                    │   │ servers, certificates  │    │
-                    │   └───────────────────────┘    │
-                    └─────────────────────────────┘
-                                  ▲
-                                  │ encrypted VPN tunnel
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │  Your laptop / phone        │
-                    │  running the Pritunl client │
-                    │  imports a .ovpn profile     │
-                    └────────────────────────────┘
-```
+<img width="1167" height="1347" alt="image" src="https://github.com/user-attachments/assets/85f89793-9324-47d6-b307-7054a430b7fa" />
+
 
 **What each piece is doing, in plain terms:**
 
