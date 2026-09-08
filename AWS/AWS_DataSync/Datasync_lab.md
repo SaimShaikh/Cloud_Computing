@@ -3,7 +3,7 @@
 
 ---
 
-## 🚨 Read this before you touch the console — corrects everything from last night
+## 🚨 Read this before you touch the console 
 
 1. **Your region (`eu-north-1` / Stockholm) is NOT the problem.** DataSync has been fully supported there since 2019, including the EC2 agent. You do **not** need to switch to Mumbai or N. Virginia. Ignore that advice.
 2. **There is no "Launch agent (EC2)" auto-launch button anymore.** The current console wizard shows Hypervisor = Amazon EC2 with a note: *"Create an EC2 instance using the AMIs provided in our User Guide."* That's the whole story — AWS expects you to grab the AMI ID yourself (one CLI command) and launch EC2 manually in a separate tab. This matches exactly what you saw.
