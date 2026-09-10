@@ -125,36 +125,7 @@ AWS Transfer Family billing has **two main dimensions**:
 
 At a high level, AWS Transfer Family sits as a **managed protocol gateway** in front of your storage:
 
-```
- External Partner / User
- (FileZilla, WinSCP, custom SFTP/AS2 client)
- |
- | SFTP / FTPS / FTP / AS2
- v
- +--------------------------------------+
- | AWS Transfer Family |
- | (Managed Server Endpoint) |
- | - Protocol handling |
- | - TLS/SSH termination |
- | - Authentication (Identity Provider) |
- +--------------------------------------+
- |
- | IAM Role assumption (scoped policy)
- v
- +------------------+ +------------------+
- | Amazon S3 | or | Amazon EFS |
- | (Bucket/Prefix | | (File System/ |
- | per user) | | Mount Target) |
- +------------------+ +------------------+
- |
- v
- (Optional) S3 Event Notification
- |
- v
- Lambda / SNS / SQS
- (post-upload automation, e.g.
- validation, ETL trigger, alerts)
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/d1bd8738-f6b9-4e3e-8e6f-a4d3027df5a6" />
 
 **Flow explained:**
 1. A partner connects using their chosen protocol client to the Transfer Family endpoint (public internet-facing, VPC-internal, or via VPC endpoint).
