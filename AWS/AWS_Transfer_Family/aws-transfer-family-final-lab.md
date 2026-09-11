@@ -17,28 +17,8 @@ The AWS-side setup is identical regardless of which OS/client you use — only t
 
 ## 2. Architecture
 
-```
- Windows PC Mac
- (MobaXterm / WinSCP / (Terminal sftp / Cyberduck /
- FileZilla) Termius / FileZilla / Transmit)
- | |
- +-----------------SFTP (port 22)-----------------+
- |
- v
- +--------------------------------------+
- | AWS Transfer Family |
- | SFTP Server (Public Endpoint) |
- | Identity: Service Managed |
- +--------------------------------------+
- |
- | IAM Role (scoped to one bucket/prefix)
- v
- +------------------------+
- | S3 Bucket |
- | your-transfer-lab-... |
- | /home/<username>/ |
- +------------------------+
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/3df900b1-4491-493d-a610-f73daaf25955" />
+
 
 ---
 
