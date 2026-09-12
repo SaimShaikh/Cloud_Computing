@@ -48,33 +48,8 @@ By the end of this lab you will have:
 
 ## 2. Architecture Diagram (Overview)
 
-```
-                     ACCOUNT A (111111111111)                                   ACCOUNT B (222222222222)
-                     Region: ap-south-1                                         Region: ap-south-1
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/55309c16-88a1-42c1-b453-bfcd650f547d" />
 
-        VPC-A  10.10.0.0/16  (fully private — no IGW)                  VPC-B  10.20.0.0/16  (fully private — no IGW)
-   ┌───────────────────────────────────┐                          ┌───────────────────────────────────┐
-   │  Private Subnet A  10.10.2.0/24    │                          │  Private Subnet B  10.20.2.0/24    │
-   │                                     │                          │                                     │
-   │   ┌───────────────┐                │                          │   ┌───────────────┐                │
-   │   │ Private-EC2-A  │  10.10.2.10    │                          │   │ Private-EC2-B  │  10.20.2.10    │
-   │   └───────┬───────┘                │                          │   └───────┬───────┘                │
-   │           │  SSM Agent              │                          │           │  SSM Agent              │
-   │   ┌───────▼────────────────┐        │                          │   ┌───────▼────────────────┐        │
-   │   │ VPC Interface Endpoints │        │                          │   │ VPC Interface Endpoints │        │
-   │   │  ssm / ssmmessages /    │        │                          │   │  ssm / ssmmessages /    │        │
-   │   │  ec2messages            │        │                          │   │  ec2messages            │        │
-   │   └─────────────────────────┘        │                          │   └─────────────────────────┘        │
-   └───────────┬─────────────────────────┘                          └───────────┬─────────────────────────┘
-               │  TGW Attachment                                                │  TGW Attachment
-        ┌──────▼──────┐                                                  ┌──────▼──────┐
-        │   TGW-A     │◄──────────── Cross-Account TGW Peering ─────────►│   TGW-B     │
-        └─────────────┘        (Requester in A, Accepter in B)           └─────────────┘
-
-  AWS Console (your browser) ──HTTPS to Systems Manager service (public AWS API, not the VPC)──► Session Manager
-  session is relayed down into each private instance via its VPC's SSM VPC endpoints — the instance itself
-  never has a public IP and never opens an inbound port to the internet.
-```
 
 ---
 
