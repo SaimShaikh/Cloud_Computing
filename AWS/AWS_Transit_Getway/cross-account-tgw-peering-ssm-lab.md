@@ -1,8 +1,4 @@
-# Cross-Account Transit Gateway Peering Lab (Fully Private, SSM-Only Access) — End-to-End Console Guide
-
-**Scope note:** 100% AWS Management Console based. No AWS CLI commands and no Terraform code anywhere in this document.
-
-**Design change from the bastion-based version:** Both VPCs are now **fully private** — there is no public subnet, no Internet Gateway, no bastion host, and no SSH key pair anywhere in this lab. The only way to reach either private EC2 instance is through **AWS Systems Manager Session Manager**, which works entirely over the private AWS network via VPC Interface Endpoints. This directly satisfies "only the two VPCs can reach each other over ICMP — not from anywhere else": there is no public entry point into either VPC at all, and even the *management* path (Session Manager) never touches the public internet or opens an inbound port.
+# Cross-Account Transit Gateway Peering Lab 
 
 ---
 
@@ -464,47 +460,3 @@ From your own laptop (outside both VPCs entirely), attempting to `ping` or `ssh`
 
 ---
 
-## 17. Final Architecture Diagram (Consolidated, With Route Paths)
-
-```
- ACCOUNT A — 111111111111 (ap-south-1)                     ACCOUNT B — 222222222222 (ap-south-1)
- ─────────────────────────────────────                     ─────────────────────────────────────
- VPC-A  10.10.0.0/16  — fully private, no IGW               VPC-B  10.20.0.0/16  — fully private, no IGW
-
- Private-Subnet-A 10.10.2.0/24                              Private-Subnet-B 10.20.2.0/24
-  [Private-EC2-A] 10.10.2.10  <-- Session Manager only        [Private-EC2-B] 10.20.2.10  <-- Session Manager only
-  [3x SSM VPC Endpoints]                                      [3x SSM VPC Endpoints]
-  Private-RT-A: 10.20.0.0/16 -> TGW-A                          Private-RT-B: 10.10.0.0/16 -> TGW-B
-  Private-SG-A: allow ICMP from 10.20.0.0/16 ONLY               Private-SG-B: allow ICMP from 10.10.0.0/16 ONLY
-                │ VPC attachment (propagated)                                │ VPC attachment (propagated)
-        ┌───────▼────────┐                                          ┌───────▼────────┐
-        │     TGW-A       │                                          │     TGW-B       │
-        │  RT: 10.10.0.0/16 -> VPC-A attachment (propagated)         │  RT: 10.20.0.0/16 -> VPC-B attachment (propagated)
-        │      10.20.0.0/16 -> Peering attachment (static)   │       │      10.10.0.0/16 -> Peering attachment (static)   │
-        └───────┬────────┘                                          └───────┬────────┘
-                │                                                            │
-                └───────────────── Cross-Account TGW Peering ───────────────┘
-                          (Requester: TGW-A  |  Accepter: TGW-B)
-
- No IGW. No NAT. No bastion. No SSH key. No public IP anywhere.
- Verified: ping 10.10.2.10 <-> ping 10.20.2.10 succeeds in both directions, from inside Session Manager only.
- Verified: no path exists from the public internet to either private IP.
-```
-
----
-
-## 18. Cleanup (Dependency-Ordered)
-
-1. **Terminate EC2 instances** in both accounts: `Private-EC2-A`, `Private-EC2-B`.
-2. **Delete the TGW static routes** created in Part G (each TGW's route table).
-3. **Delete the TGW peering attachment** (from either account — removes it from both).
-4. **Delete the VPC attachments**: `VPC-A-Attachment`, `VPC-B-Attachment`.
-5. **Delete the Transit Gateways**: `TGW-A`, `TGW-B` (must have zero attachments first).
-6. **Delete the three VPC Interface Endpoints** in each account (`vpce-ssm-*`, `vpce-ssmmessages-*`, `vpce-ec2messages-*`).
-7. **Delete route tables**: `Private-RT-A`, `Private-RT-B` (disassociate from subnets first if required).
-8. **Delete subnets**: `Private-Subnet-A`, `Private-Subnet-B`.
-9. **Delete Security Groups**: `Private-SG-A`, `SSM-Endpoint-SG-A`, `Private-SG-B`, `SSM-Endpoint-SG-B`.
-10. **Delete the VPCs**: `VPC-A`, `VPC-B`.
-11. **Delete the IAM roles**: `SSM-Instance-Role-A`, `SSM-Instance-Role-B` (IAM console, not VPC-scoped, delete last).
-
-**Final check:** Confirm in both accounts that no instances, TGWs, attachments, VPC endpoints, or VPCs from this lab remain — VPC Interface Endpoints and TGW attachments both carry an hourly charge until deleted.
