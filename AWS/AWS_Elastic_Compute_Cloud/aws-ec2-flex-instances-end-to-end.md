@@ -1,8 +1,4 @@
-# Amazon EC2 Flex Instances — End-to-End Guide
-
-> **Status:** Revised September 16, 2026
-> **Scope:** What Flex instances are, how the performance model works, families and sizes, limits, cost, selection method, deployment, monitoring, and troubleshooting.
-
+# Amazon EC2 Flex Instances 
 ---
 
 ## 1. Executive Summary
