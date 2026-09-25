@@ -4,29 +4,8 @@ Verified against AWS's official EC2 Auto Scaling documentation. Corrected in thr
 
 ## What You're Building
 
-```
-                         INTERNET
-                            |
-                     +------+------+
-                     |     ALB     |  Port 80
-                     +------+------+
-                            |
-                       Target Group
-                            |
-              +-------------+-------------+
-         Availability Zone 1         Availability Zone 2
-              |                           |
-             EC2                         EC2
-              +-------------+-------------+
-                            |
-                     Auto Scaling Group
-                     Min 2 / Desired 2 / Max 6
-                            |
-              +-------------+-------------+
-         Scale OUT policy            Scale IN policy
-         CloudWatch alarm            CloudWatch alarm
-         (CPU >= 40%)                (CPU <= 30%)
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/6ee32240-bec2-4fd9-b21e-493438cda63f" />
+
 
 **Scale OUT steps** (relative to a single alarm breached at CPU >= 40%):
 | CPU range | Action |
