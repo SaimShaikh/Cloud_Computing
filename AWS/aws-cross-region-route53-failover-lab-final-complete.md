@@ -1,58 +1,6 @@
 # AWS Cross-Region DNS Failover -- End-to-End High Availability Lab
 
 
-# 0. Master Execution Order
-
-Use this order when rebuilding the lab from zero. Do not jump directly to Route 53.
-
-```text
-1. Prepare both AWS accounts
-2. Plan CIDRs
-3. Build Mumbai VPC
-4. Build Mumbai subnets
-5. Attach Mumbai Internet Gateway
-6. Configure Mumbai route tables
-7. Create Mumbai security groups
-8. Launch Mumbai EC2
-9. Install/configure Nginx
-10. Create /health on Mumbai
-11. Create Mumbai target group
-12. Create Mumbai ALB
-13. Test Mumbai EC2 → Nginx → ALB
-14. Build Hyderabad VPC
-15. Build Hyderabad subnets
-16. Attach Hyderabad Internet Gateway
-17. Configure Hyderabad route tables
-18. Create Hyderabad security groups
-19. Launch Hyderabad EC2
-20. Install/configure Nginx
-21. Create /health on Hyderabad
-22. Create Hyderabad target group
-23. Create Hyderabad ALB
-24. Test Hyderabad EC2 → Nginx → ALB
-25. Create and accept cross-account VPC peering
-26. Add required peering routes on both sides
-27. Verify peering
-28. Create Route 53 public hosted zone
-29. Change Hostinger nameservers
-30. Verify Route 53 delegation
-31. Create Mumbai Route 53 health check
-32. Create Hyderabad Route 53 health check
-33. Create Route 53 Primary failover record
-34. Create Route 53 Secondary failover record
-35. Leave Secondary health check blank for this lab
-36. Test normal DNS/application operation
-37. Stop Mumbai Nginx
-38. Verify Mumbai ALB failure
-39. Wait for hc-mumbai to become Unhealthy
-40. Verify DNS switches to Hyderabad
-41. Verify Hyderabad application
-42. Restart Mumbai Nginx
-43. Wait for hc-mumbai to become Healthy
-44. Verify DNS failback to Mumbai
-45. Run final validation checklist
-46. Clean up AWS resources when finished
-```
 
 ---
 
