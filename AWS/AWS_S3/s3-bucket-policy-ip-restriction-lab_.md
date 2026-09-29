@@ -272,6 +272,7 @@ Expected:
 ``` text
 IP restriction test
 ```
+<img width="2018" height="419" alt="image" src="https://github.com/user-attachments/assets/d3a7e43a-0306-4959-8d36-9aafafa58d15" />
 
 ### Result
 
@@ -325,6 +326,7 @@ Access Denied
 ```
 
 This demonstrates that the IP restriction is working.
+<img width="2628" height="391" alt="image" src="https://github.com/user-attachments/assets/f3dbf7d8-f15e-4fda-948d-19f3837b59b0" />
 
 ------------------------------------------------------------------------
 
@@ -607,47 +609,3 @@ Check:
   -----------------------------------------------------------------------
 
 ------------------------------------------------------------------------
-
-## 18. Final Architecture
-
-``` text
-                         AWS
-                          |
-                    Amazon S3
-                          |
-             my-test2-denied-access
-                          |
-                  Bucket Policy
-                          |
-             NotIpAddress condition
-                          |
-              Allowed IP:
-             49.205.128.237/32
-                          |
-             +------------+------------+
-             |                         |
-             v                         v
-       Allowed request            Other request
-       49.205.128.237             Any other IP
-             |                         |
-             v                         v
-       IAM permissions            Explicit Deny
-             |                         |
-             v                         v
-          ACCESS                  ACCESS DENIED
-```
-
-## 19. Key Takeaways
-
--   **IAM policy** controls permissions associated with an IAM identity.
--   **S3 bucket policy** is a resource-based policy attached to the
-    bucket.
--   `NotIpAddress` with `Effect: Deny` is useful for denying every
-    source IP except the specified IP.
--   `49.205.128.237/32` represents exactly one IPv4 address.
--   An explicit `Deny` overrides an `Allow`, including broad IAM
-    permissions such as `AdministratorAccess`.
--   The policy is evaluated when a request is made; it does not
-    permanently modify the S3 object.
--   Removing the bucket policy removes that particular IP restriction.
--   A dynamic public IP can cause access to stop unexpectedly.
