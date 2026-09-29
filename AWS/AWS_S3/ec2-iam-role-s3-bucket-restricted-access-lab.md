@@ -1,4 +1,5 @@
-# EC2 + IAM Role — S3 Bucket-Restricted Access Lab
+
+# EC2 + IAM Role — S3 Bucket-Restricted Access Lab (AWS Console Only)
 
 ## 1. Objective
 
@@ -8,11 +9,11 @@ Create an EC2 instance and attach an IAM role that allows the instance to:
 - Download objects **only from that bucket**
 - Access another S3 bucket: **Denied**
 
-This lab demonstrates **EC2 Instance Profile + IAM Role + least-privilege S3 permissions**.
+This lab is completely **AWS Management Console based**. No AWS CLI commands are required.
 
 ---
 
-## 2. Architecture
+# 2. Architecture
 
 ```text
                          AWS Account
@@ -30,8 +31,6 @@ This lab demonstrates **EC2 Instance Profile + IAM Role + least-privilege S3 per
                        Instance Profile
                               |
                             EC2
-                              |
-                         AWS CLI
 ```
 
 Expected result:
@@ -39,11 +38,11 @@ Expected result:
 ```text
 EC2
  |
- +----> Bucket A
+ +----> Allowed Bucket
  |       List   = ALLOWED
  |       Get    = ALLOWED
  |
- +----> Bucket B
+ +----> Denied Bucket
          List   = DENIED
          Get    = DENIED
 ```
@@ -52,28 +51,28 @@ EC2
 
 # 3. Prerequisites
 
+You need:
+
 - AWS account
-- Permission to create EC2, IAM roles/policies, and S3 resources
-- AWS CLI
-- SSH access to the EC2 instance
-- Region: `ap-south-1` (Mumbai)
+- Permission to create EC2, IAM, and S3 resources
+- AWS Management Console access
+- Region: **Asia Pacific (Mumbai) — ap-south-1**
 
 ---
 
-# 4. Lab Variables
+# 4. Lab Resources
 
-Use unique S3 bucket names.
+Create these resources:
 
-```bash
-REGION="ap-south-1"
+| Resource | Name |
+|---|---|
+| Allowed S3 bucket | `ec2-iam-allowed-bucket-<unique>` |
+| Denied S3 bucket | `ec2-iam-denied-bucket-<unique>` |
+| IAM policy | `EC2-S3-Restricted-Policy` |
+| IAM role | `EC2-S3-Restricted-Role` |
+| EC2 instance | `EC2-S3-Test` |
 
-ALLOWED_BUCKET="ec2-iam-allowed-bucket-<unique>"
-DENIED_BUCKET="ec2-iam-denied-bucket-<unique>"
-
-ROLE_NAME="EC2-S3-Restricted-Role"
-INSTANCE_PROFILE="EC2-S3-Restricted-InstanceProfile"
-POLICY_NAME="EC2-S3-Restricted-Policy"
-```
+S3 bucket names must be globally unique.
 
 Example:
 
@@ -82,72 +81,152 @@ ec2-iam-allowed-bucket-saime-2026
 ec2-iam-denied-bucket-saime-2026
 ```
 
-S3 bucket names must be globally unique.
+---
+
+# 5. Step 1 — Create the Allowed S3 Bucket
+
+Go to:
+
+```text
+AWS Console
+→ S3
+→ General purpose buckets
+→ Create bucket
+```
+
+Enter:
+
+```text
+Bucket name:
+ec2-iam-allowed-bucket-<unique>
+```
+
+Region:
+
+```text
+Asia Pacific (Mumbai) ap-south-1
+```
+
+For this lab, keep the default settings unless your account requires otherwise.
+
+Click:
+
+```text
+Create bucket
+```
 
 ---
 
-# 5. Create Two S3 Buckets
+# 6. Step 2 — Create the Denied S3 Bucket
 
-Create the allowed bucket:
+Again:
 
-```bash
-aws s3api create-bucket \
-  --bucket "$ALLOWED_BUCKET" \
-  --region "$REGION" \
-  --create-bucket-configuration LocationConstraint="$REGION"
+```text
+S3
+→ General purpose buckets
+→ Create bucket
 ```
 
-Create the denied bucket:
+Bucket name:
 
-```bash
-aws s3api create-bucket \
-  --bucket "$DENIED_BUCKET" \
-  --region "$REGION" \
-  --create-bucket-configuration LocationConstraint="$REGION"
+```text
+ec2-iam-denied-bucket-<unique>
 ```
 
-Verify:
+Region:
 
-```bash
-aws s3 ls
+```text
+Asia Pacific (Mumbai) ap-south-1
+```
+
+Click:
+
+```text
+Create bucket
+```
+
+You should now have:
+
+```text
+ec2-iam-allowed-bucket-<unique>
+ec2-iam-denied-bucket-<unique>
 ```
 
 ---
 
-# 6. Upload Test Objects
+# 7. Step 3 — Upload Test Objects
 
-Create test files:
+## Upload object to Allowed Bucket
 
-```bash
-echo "This object belongs to the allowed bucket." > allowed.txt
-echo "This object belongs to the denied bucket." > denied.txt
+Open:
+
+```text
+S3
+→ ec2-iam-allowed-bucket-<unique>
+→ Objects
+→ Upload
+```
+
+Create a local text file:
+
+```text
+allowed.txt
+```
+
+Content:
+
+```text
+This object belongs to the allowed bucket.
+```
+
+Upload it.
+
+---
+
+## Upload object to Denied Bucket
+
+Open:
+
+```text
+S3
+→ ec2-iam-denied-bucket-<unique>
+→ Objects
+→ Upload
 ```
 
 Upload:
 
-```bash
-aws s3 cp allowed.txt s3://$ALLOWED_BUCKET/
-aws s3 cp denied.txt s3://$DENIED_BUCKET/
+```text
+denied.txt
 ```
 
-Verify:
+Content:
 
-```bash
-aws s3 ls s3://$ALLOWED_BUCKET/
-aws s3 ls s3://$DENIED_BUCKET/
+```text
+This object belongs to the denied bucket.
 ```
+
+Now both buckets contain a test object.
 
 ---
 
-# 7. Create the IAM Permission Policy
+# 8. Step 4 — Create the IAM Policy
 
-Create:
+Go to:
 
-```bash
-nano ec2-s3-restricted-policy.json
+```text
+IAM
+→ Policies
+→ Create policy
 ```
 
-Use:
+Select:
+
+```text
+JSON
+```
+
+Enter:
 
 ```json
 {
@@ -169,236 +248,386 @@ Use:
 }
 ```
 
-Replace `<unique>` with your actual bucket name.
-
-### Why two statements?
-
-`ListBucket` applies to the bucket:
+Replace:
 
 ```text
-arn:aws:s3:::bucket-name
+ec2-iam-allowed-bucket-<unique>
 ```
 
-`GetObject` applies to objects:
-
-```text
-arn:aws:s3:::bucket-name/*
-```
-
-Do **not** use:
-
-```json
-"Action": "s3:*",
-"Resource": "*"
-```
-
-for this lab.
-
----
-
-# 8. Create the IAM Policy
-
-```bash
-aws iam create-policy \
-  --policy-name "$POLICY_NAME" \
-  --policy-document file://ec2-s3-restricted-policy.json
-```
-
-Get the policy ARN:
-
-```bash
-aws iam list-policies \
-  --scope Local \
-  --query 'Policies[?PolicyName==`EC2-S3-Restricted-Policy`].Arn' \
-  --output text
-```
+with your actual allowed bucket name.
 
 Example:
-
-```text
-arn:aws:iam::123456789012:policy/EC2-S3-Restricted-Policy
-```
-
----
-
-# 9. Create the IAM Role
-
-Create the trust policy:
-
-```bash
-nano ec2-trust-policy.json
-```
-
-Add:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "ListOnlyAllowedBucket",
       "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::ec2-iam-allowed-bucket-saime-2026"
+    },
+    {
+      "Sid": "DownloadOnlyFromAllowedBucket",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::ec2-iam-allowed-bucket-saime-2026/*"
     }
   ]
 }
 ```
 
-Create the role:
-
-```bash
-aws iam create-role \
-  --role-name "$ROLE_NAME" \
-  --assume-role-policy-document file://ec2-trust-policy.json
-```
-
-The trust policy means:
+Click:
 
 ```text
-EC2 service
-    |
-    | sts:AssumeRole
-    v
+Next
+```
+
+Review the policy.
+
+Policy name:
+
+```text
+EC2-S3-Restricted-Policy
+```
+
+Description:
+
+```text
+Allows EC2 to list and download objects only from the allowed S3 bucket.
+```
+
+Click:
+
+```text
+Create policy
+```
+
+---
+
+# 9. Understand the Policy Before Continuing
+
+There are two permissions.
+
+## Permission 1 — List the bucket
+
+```json
+"Action": "s3:ListBucket"
+```
+
+Resource:
+
+```text
+arn:aws:s3:::ALLOWED-BUCKET
+```
+
+This allows the EC2 instance to see/list objects in that bucket.
+
+---
+
+## Permission 2 — Download objects
+
+```json
+"Action": "s3:GetObject"
+```
+
+Resource:
+
+```text
+arn:aws:s3:::ALLOWED-BUCKET/*
+```
+
+The `/*` means objects inside the bucket.
+
+---
+
+# 10. Step 5 — Create the IAM Role
+
+Go to:
+
+```text
+IAM
+→ Roles
+→ Create role
+```
+
+Under:
+
+```text
+Trusted entity type
+```
+
+Select:
+
+```text
+AWS service
+```
+
+Under:
+
+```text
+Service or use case
+```
+
+Select:
+
+```text
+EC2
+```
+
+This creates the trust relationship:
+
+```text
+EC2
+ |
+ | AssumeRole
+ v
+IAM Role
+```
+
+Click:
+
+```text
+Next
+```
+
+---
+
+# 11. Step 6 — Attach the S3 Policy to the Role
+
+In:
+
+```text
+Add permissions
+```
+
+Search:
+
+```text
+EC2-S3-Restricted-Policy
+```
+
+Select the policy.
+
+Click:
+
+```text
+Next
+```
+
+---
+
+# 12. Step 7 — Name the Role
+
+Role name:
+
+```text
+EC2-S3-Restricted-Role
+```
+
+Description:
+
+```text
+Allows EC2 to list and download objects only from one S3 bucket.
+```
+
+Click:
+
+```text
+Create role
+```
+
+The role now contains:
+
+```text
+Trust policy:
+    EC2 service
+
+Permissions policy:
+    EC2-S3-Restricted-Policy
+```
+
+---
+
+# 13. Step 8 — Verify the IAM Role
+
+Open:
+
+```text
+IAM
+→ Roles
+→ EC2-S3-Restricted-Role
+```
+
+Check:
+
+```text
+Permissions
+```
+
+You should see:
+
+```text
+EC2-S3-Restricted-Policy
+```
+
+Then open:
+
+```text
+Trust relationships
+```
+
+You should see EC2 as the trusted service.
+
+Conceptually:
+
+```text
+EC2
+ |
+ | sts:AssumeRole
+ v
+EC2-S3-Restricted-Role
+ |
+ +---- s3:ListBucket
+ |
+ +---- s3:GetObject
+```
+
+---
+
+# 14. Step 9 — Launch the EC2 Instance
+
+Go to:
+
+```text
+EC2
+→ Instances
+→ Launch instances
+```
+
+Name:
+
+```text
+EC2-S3-Test
+```
+
+AMI:
+
+```text
+Ubuntu Server 24.04 LTS
+```
+
+Instance type:
+
+```text
+t3.micro
+```
+
+Select/create your key pair as required.
+
+Configure networking according to your environment.
+
+For the IAM role:
+
+Go to:
+
+```text
+Advanced details
+→ IAM instance profile
+```
+
+Select:
+
+```text
+EC2-S3-Restricted-Role
+```
+
+Depending on the console version, the selector may display the associated instance profile rather than the role name.
+
+Launch the instance.
+
+---
+
+# 15. Step 10 — Verify the IAM Role Is Attached
+
+After the instance is running:
+
+```text
+EC2
+→ Instances
+→ EC2-S3-Test
+```
+
+Open:
+
+```text
+Security
+```
+
+Look for:
+
+```text
+IAM Role
+```
+
+You should see:
+
+```text
+EC2-S3-Restricted-Role
+```
+
+This confirms that the EC2 instance has the role.
+
+---
+
+# 16. Step 11 — Connect to EC2
+
+From:
+
+```text
+EC2
+→ Instances
+→ EC2-S3-Test
+```
+
+Click:
+
+```text
+Connect
+```
+
+You can use:
+
+```text
+EC2 Instance Connect
+```
+
+if supported by the instance and configuration.
+
+Open the terminal.
+
+---
+
+# 17. Step 12 — Install AWS CLI Only If Needed
+
+For this lab, you do **not** need to configure an AWS access key.
+
+The purpose is to test the IAM role attached to EC2.
+
+If you use a terminal-based test, make sure the AWS CLI is using the instance role rather than a manually configured IAM user's access keys.
+
+The important identity to verify is:
+
+```text
 EC2-S3-Restricted-Role
 ```
 
 ---
 
-# 10. Attach the S3 Policy to the Role
+# 18. Step 13 — Test Access to Allowed Bucket
 
-Replace `<ACCOUNT-ID>`:
-
-```bash
-aws iam attach-role-policy \
-  --role-name "$ROLE_NAME" \
-  --policy-arn arn:aws:iam::<ACCOUNT-ID>:policy/$POLICY_NAME
-```
-
-Verify:
-
-```bash
-aws iam list-attached-role-policies \
-  --role-name "$ROLE_NAME"
-```
-
----
-
-# 11. Create the EC2 Instance Profile
-
-EC2 receives the IAM role through an **instance profile**.
-
-Create it:
-
-```bash
-aws iam create-instance-profile \
-  --instance-profile-name "$INSTANCE_PROFILE"
-```
-
-Add the role:
-
-```bash
-aws iam add-role-to-instance-profile \
-  --instance-profile-name "$INSTANCE_PROFILE" \
-  --role-name "$ROLE_NAME"
-```
-
-Verify:
-
-```bash
-aws iam get-instance-profile \
-  --instance-profile-name "$INSTANCE_PROFILE"
-```
-
----
-
-# 12. Launch the EC2 Instance
-
-Example:
-
-```text
-AMI: Ubuntu Server 24.04 LTS
-Instance type: t3.micro
-Region: ap-south-1
-```
-
-Attach:
-
-```text
-EC2-S3-Restricted-InstanceProfile
-```
-
-from:
-
-```text
-EC2 Console
-→ Launch Instance
-→ Advanced Details
-→ IAM Instance Profile
-```
-
-You can also attach the role to an existing instance.
-
----
-
-# 13. Verify the Role from EC2
-
-SSH into the instance.
-
-For IMDSv2:
-
-```bash
-TOKEN=$(curl -X PUT \
-  "http://169.254.169.254/latest/api/token" \
-  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-```
-
-Get the attached role:
-
-```bash
-curl \
-  -H "X-aws-ec2-metadata-token: $TOKEN" \
-  http://169.254.169.254/latest/meta-data/iam/security-credentials/
-```
-
-Expected:
-
-```text
-EC2-S3-Restricted-Role
-```
-
----
-
-# 14. Verify AWS CLI Uses the EC2 Role
-
-Run:
-
-```bash
-aws sts get-caller-identity
-```
-
-Expected ARN:
-
-```text
-arn:aws:sts::<ACCOUNT-ID>:assumed-role/EC2-S3-Restricted-Role/...
-```
-
-Also check:
-
-```bash
-aws configure list
-```
-
-The CLI should use the EC2 role's temporary credentials, not manually configured long-term access keys.
-
----
-
-# 15. Test 1 — List Allowed Bucket
-
-```bash
-aws s3 ls s3://$ALLOWED_BUCKET/
-```
+From the EC2 terminal, test listing the allowed bucket.
 
 Expected:
 
@@ -406,34 +635,10 @@ Expected:
 allowed.txt
 ```
 
-Result:
+Then test downloading:
 
 ```text
-SUCCESS
-```
-
-Reason:
-
-```text
-s3:ListBucket
-```
-
-is allowed on the allowed bucket.
-
----
-
-# 16. Test 2 — Download from Allowed Bucket
-
-```bash
-aws s3 cp \
-  s3://$ALLOWED_BUCKET/allowed.txt \
-  ./allowed-downloaded.txt
-```
-
-Verify:
-
-```bash
-cat allowed-downloaded.txt
+allowed.txt
 ```
 
 Expected:
@@ -445,48 +650,26 @@ This object belongs to the allowed bucket.
 Result:
 
 ```text
-SUCCESS
+LIST  → ALLOWED
+GET   → ALLOWED
 ```
-
-Reason:
-
-```text
-s3:GetObject
-```
-
-is allowed for objects inside the allowed bucket.
 
 ---
 
-# 17. Test 3 — List Denied Bucket
+# 19. Step 14 — Test Access to Denied Bucket
 
-```bash
-aws s3 ls s3://$DENIED_BUCKET/
-```
+Now try to list the denied bucket.
 
 Expected:
 
 ```text
-An error occurred (AccessDenied) when calling the ListObjectsV2 operation:
-Access Denied
+AccessDenied
 ```
 
-Result:
+Then try to download:
 
 ```text
-DENIED
-```
-
-There is no applicable `s3:ListBucket` Allow for this bucket.
-
----
-
-# 18. Test 4 — Download from Denied Bucket
-
-```bash
-aws s3 cp \
-  s3://$DENIED_BUCKET/denied.txt \
-  ./denied-downloaded.txt
+denied.txt
 ```
 
 Expected:
@@ -498,90 +681,184 @@ AccessDenied
 Result:
 
 ```text
-DENIED
+LIST  → DENIED
+GET   → DENIED
 ```
 
-There is no applicable `s3:GetObject` Allow for this bucket.
+---
+
+# 20. Important Testing Note
+
+The AWS Console itself is logged in as **your IAM user/role**, not as the EC2 instance role.
+
+Therefore:
+
+```text
+S3 Console
+    |
+    +---- uses your console identity
+
+EC2
+    |
+    +---- uses EC2-S3-Restricted-Role
+```
+
+To prove the EC2 role restriction, perform the S3 access test **from inside the EC2 instance**.
+
+Do not simply open S3 from the AWS Console and assume that proves the EC2 role works.
 
 ---
 
-# 19. Final Test Matrix
+# 21. Expected Result
 
-| Operation | Allowed Bucket | Denied Bucket |
-|---|---|---|
-| List bucket | ALLOWED | DENIED |
-| Download object | ALLOWED | DENIED |
-| `s3:ListBucket` | Yes | No |
-| `s3:GetObject` | Yes | No |
+| Test | Result |
+|---|---|
+| EC2 → List Allowed Bucket | ALLOWED |
+| EC2 → Download Allowed Object | ALLOWED |
+| EC2 → List Denied Bucket | DENIED |
+| EC2 → Download Denied Object | DENIED |
+
+## With Allow 
+<img width="1680" height="1050" alt="Screenshot 2026-09-28 at 11 50 50 AM" src="https://github.com/user-attachments/assets/6086d3cf-fd26-41ea-862a-cb696022a088" />
+
+## With Deny 
+<img width="1144" height="199" alt="image" src="https://github.com/user-attachments/assets/3a6e62a3-79dc-4e2e-81e9-ef22a22a9dd7" />
+
+Architecture:
+
+```text
+                    EC2
+                     |
+             IAM Instance Profile
+                     |
+          EC2-S3-Restricted-Role
+                     |
+             IAM Permission Policy
+                     |
+          +----------+----------+
+          |                     |
+    Allowed Bucket        Denied Bucket
+          |                     |
+       LIST ✓                  LIST ✗
+       GET  ✓                  GET  ✗
+```
 
 ---
 
-# 20. Important IAM Concept
+# 22. Why Does the Denied Bucket Fail?
 
-The policy is restricted by both **Action** and **Resource**.
+There is no permission in the IAM role for:
+
+```text
+ec2-iam-denied-bucket-<unique>
+```
+
+The role only allows:
 
 ```text
 s3:ListBucket
-        |
-        +----> arn:aws:s3:::ALLOWED-BUCKET
-
-s3:GetObject
-        |
-        +----> arn:aws:s3:::ALLOWED-BUCKET/*
 ```
 
-This is the principle of **least privilege**.
+on:
+
+```text
+Allowed Bucket
+```
+
+and:
+
+```text
+s3:GetObject
+```
+
+on:
+
+```text
+Allowed Bucket/*
+```
+
+Therefore, the denied bucket has no applicable Allow.
 
 ---
 
-# 21. Why `ListBucket` and `GetObject` Are Separate
+# 23. Important IAM Concept — Explicit Deny
 
-### `s3:ListBucket`
+This lab does not require an explicit `Deny`.
 
-Controls listing objects:
+AWS authorization generally works like:
+
+```text
+Request
+   |
+   v
+Is there an applicable Allow?
+   |
+   +---- YES ---> Continue
+   |
+   +---- NO ----> Access Denied
+```
+
+If an applicable explicit `Deny` exists:
+
+```text
+Explicit Deny
+      |
+      v
+Overrides Allow
+```
+
+---
+
+# 24. Why `ListBucket` and `GetObject` Are Different
+
+This is an important interview concept.
+
+### List
+
+```text
+s3:ListBucket
+```
+
+Resource:
 
 ```text
 arn:aws:s3:::bucket-name
 ```
 
-### `s3:GetObject`
+### Download
 
-Controls reading/downloading objects:
+```text
+s3:GetObject
+```
+
+Resource:
 
 ```text
 arn:aws:s3:::bucket-name/*
 ```
 
-Therefore this is wrong:
+So this is wrong for `GetObject`:
 
-```json
-{
-  "Effect": "Allow",
-  "Action": "s3:GetObject",
-  "Resource": "arn:aws:s3:::bucket-name"
-}
+```text
+arn:aws:s3:::bucket-name
 ```
 
 Correct:
 
-```json
-{
-  "Effect": "Allow",
-  "Action": "s3:GetObject",
-  "Resource": "arn:aws:s3:::bucket-name/*"
-}
+```text
+arn:aws:s3:::bucket-name/*
 ```
 
 ---
 
-# 22. Why Use an IAM Role Instead of Access Keys?
+# 25. Why Use IAM Role Instead of Access Keys?
 
-Avoid storing long-term AWS access keys in:
+Do not store long-term AWS access keys inside:
 
 ```text
-EC2 source code
+EC2
+Application code
 .env files
-shell scripts
 Git repositories
 Docker images
 ```
@@ -595,38 +872,42 @@ EC2
  v
 IAM Role
  |
- | Temporary credentials
+ | Temporary Credentials
  v
-S3
+AWS Services
 ```
 
-The AWS CLI and applications on EC2 can obtain temporary credentials automatically.
+The EC2 role provides temporary credentials to applications running on the instance.
 
 ---
 
-# 23. Important: Role vs Instance Profile
+# 26. Common Mistakes
 
-They are related but not the same thing.
+## Mistake 1 — Giving `s3:*`
+
+Avoid:
 
 ```text
-IAM Role
-    |
-    | permissions + trust policy
-    v
-Instance Profile
-    |
-    | attached to EC2
-    v
-EC2
+s3:*
 ```
 
-The instance profile is the EC2 mechanism used to associate the role with the instance.
+when only list/download are required.
 
 ---
 
-# 24. Common Mistakes
+## Mistake 2 — Using `Resource: "*"`
 
-## Mistake 1 — Wrong `GetObject` Resource
+Avoid:
+
+```text
+"Resource": "*"
+```
+
+when only one bucket is required.
+
+---
+
+## Mistake 3 — Using bucket ARN for `GetObject`
 
 Wrong:
 
@@ -640,294 +921,34 @@ Correct:
 arn:aws:s3:::bucket-name/*
 ```
 
-## Mistake 2 — Giving `s3:*`
+---
 
-Avoid:
+## Mistake 4 — Testing from the S3 Console
 
-```text
-s3:*
-```
+The S3 Console uses your console identity.
 
-when only listing and downloading are required.
+It does not automatically use the EC2 instance role.
 
-## Mistake 3 — Using `Resource: "*"`
+Test the role from the EC2 instance.
 
-Avoid broad resource access when the requirement is one bucket.
+---
 
-## Mistake 4 — Forgetting `ListBucket`
+## Mistake 5 — EC2 Has Another IAM Role
 
-If you want:
-
-```bash
-aws s3 ls s3://bucket-name/
-```
-
-you need:
+Check:
 
 ```text
-s3:ListBucket
+EC2
+→ Instance
+→ Security
+→ IAM Role
 ```
 
-## Mistake 5 — Testing with a different credential
+Make sure it is:
 
-If `aws configure` has an access key configured on the EC2 instance, you might accidentally test the IAM user's permissions instead of the EC2 role.
-
-Verify:
-
-```bash
-aws sts get-caller-identity
+```text
+EC2-S3-Restricted-Role
 ```
 
 ---
 
-# 25. Advanced Verification — IAM Policy Simulation
-
-You can test the role without actually accessing S3.
-
-Allowed bucket:
-
-```bash
-aws iam simulate-principal-policy \
-  --policy-source-arn arn:aws:iam::<ACCOUNT-ID>:role/$ROLE_NAME \
-  --action-names s3:ListBucket \
-  --resource-arns arn:aws:s3:::$ALLOWED_BUCKET
-```
-
-Expected decision:
-
-```text
-allowed
-```
-
-Denied bucket:
-
-```bash
-aws iam simulate-principal-policy \
-  --policy-source-arn arn:aws:iam::<ACCOUNT-ID>:role/$ROLE_NAME \
-  --action-names s3:ListBucket \
-  --resource-arns arn:aws:s3:::$DENIED_BUCKET
-```
-
-Expected decision:
-
-```text
-implicitDeny
-```
-
----
-
-# 26. Why Is the Denied Bucket Denied?
-
-Our policy does not need an explicit `Deny`.
-
-There is simply no applicable `Allow` for Bucket B.
-
-Conceptually:
-
-```text
-Request
-   |
-   v
-Applicable Allow?
-   |
-   +---- YES ---> Access can proceed
-   |
-   +---- NO ----> Access Denied
-```
-
-An explicit `Deny` from another applicable policy layer would override an `Allow`.
-
----
-
-# 27. Other Policy Layers to Know
-
-In a real AWS environment, access can be affected by multiple controls:
-
-```text
-IAM identity policy
-        +
-S3 bucket policy
-        +
-SCP
-        +
-VPC endpoint policy
-        +
-KMS key policy
-        +
-Other applicable controls
-```
-
-For this lab, the main restriction comes from the EC2 role's identity policy.
-
-If the object uses SSE-KMS, additional KMS permissions may be required.
-
----
-
-# 28. Optional Extension — Add Upload Permission
-
-If you later want the EC2 instance to upload objects too, add:
-
-```json
-{
-  "Sid": "UploadOnlyToAllowedBucket",
-  "Effect": "Allow",
-  "Action": "s3:PutObject",
-  "Resource": "arn:aws:s3:::ec2-iam-allowed-bucket-<unique>/*"
-}
-```
-
-Then test:
-
-```bash
-echo "Uploaded from EC2" > upload-test.txt
-
-aws s3 cp   upload-test.txt   s3://$ALLOWED_BUCKET/
-```
-
-Do not add this permission if the application only needs read access.
-
----
-
-# 29. Cleanup
-
-Delete objects:
-
-```bash
-aws s3 rm s3://$ALLOWED_BUCKET/allowed.txt
-aws s3 rm s3://$DENIED_BUCKET/denied.txt
-```
-
-Delete buckets:
-
-```bash
-aws s3 rb s3://$ALLOWED_BUCKET
-aws s3 rb s3://$DENIED_BUCKET
-```
-
-Detach the policy:
-
-```bash
-aws iam detach-role-policy   --role-name "$ROLE_NAME"   --policy-arn arn:aws:iam::<ACCOUNT-ID>:policy/$POLICY_NAME
-```
-
-Remove the role from the instance profile:
-
-```bash
-aws iam remove-role-from-instance-profile   --instance-profile-name "$INSTANCE_PROFILE"   --role-name "$ROLE_NAME"
-```
-
-Delete instance profile:
-
-```bash
-aws iam delete-instance-profile   --instance-profile-name "$INSTANCE_PROFILE"
-```
-
-Delete role:
-
-```bash
-aws iam delete-role   --role-name "$ROLE_NAME"
-```
-
-Delete policy:
-
-```bash
-aws iam delete-policy   --policy-arn arn:aws:iam::<ACCOUNT-ID>:policy/$POLICY_NAME
-```
-
-Terminate the EC2 instance from:
-
-```text
-EC2 Console
-→ Instances
-→ Select instance
-→ Terminate instance
-```
-
----
-
-# 30. Interview Questions
-
-### Q1. Why does `s3:ListBucket` use the bucket ARN?
-
-Because listing is an operation on the bucket:
-
-```text
-arn:aws:s3:::bucket-name
-```
-
-### Q2. Why does `s3:GetObject` use `bucket/*`?
-
-Because `GetObject` operates on individual objects:
-
-```text
-arn:aws:s3:::bucket-name/*
-```
-
-### Q3. Why use an IAM role on EC2?
-
-It provides temporary credentials without storing long-term access keys on the server.
-
-### Q4. Can this EC2 instance access another S3 bucket?
-
-Not through this role, because the role has no applicable Allow for that bucket.
-
-### Q5. Does the role need `s3:PutObject`?
-
-No. The requirement is only list and download.
-
-### Q6. Does `s3:ListBucket` allow downloading objects?
-
-No. `s3:ListBucket` and `s3:GetObject` are separate permissions.
-
-### Q7. What happens if an explicit Deny exists?
-
-An explicit Deny overrides an Allow.
-
-### Q8. Can multiple EC2 instances use the same IAM role?
-
-Yes. Every instance using the role receives the same role permissions.
-
-### Q9. What is least privilege here?
-
-```text
-Actions:
-    s3:ListBucket
-    s3:GetObject
-
-Resources:
-    One specific bucket
-    Objects inside that bucket
-```
-
----
-
-# 31. Final Expected Result
-
-```text
-                         EC2
-                          |
-                 Instance Profile
-                          |
-              EC2-S3-Restricted-Role
-                          |
-               +----------+----------+
-               |                     |
-          Allowed Bucket        Denied Bucket
-               |                     |
-          List = ALLOW          List = DENY
-          Get  = ALLOW          Get  = DENY
-```
-
-## Key AWS Lesson
-
-> Grant the smallest required actions on the smallest required resources.
-
-For this lab:
-
-```text
-s3:ListBucket
-    -> one specific bucket
-
-s3:GetObject
-    -> objects inside that same bucket
-```
