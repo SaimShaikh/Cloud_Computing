@@ -1,24 +1,23 @@
-# AWS EC2 Instance Connect Endpoint (EICE) --- End-to-End Guide
+# AWS EC2 Instance Connect Endpoint (EICE) 
 
-## 1. What is EC2 Instance Connect Endpoint?
+## 1. What is EICE?
 
-**EC2 Instance Connect Endpoint (EICE)** is an AWS feature that allows
-you to connect to an **EC2 instance in a private subnet** without:
+**EC2 Instance Connect Endpoint (EICE)** is an AWS-managed
+**identity-aware TCP proxy** that lets an authorized user create a
+private tunnel from their computer to an EC2 instance.
 
--   giving the EC2 a public IP
--   creating a Bastion Host
--   opening SSH (port 22) to the internet
+It is mainly useful when an EC2 instance has only a private IP and you
+want to connect using **SSH or RDP**, without giving the instance a
+public IP or maintaining a Bastion Host.
 
-The simplest definition:
-
-> **EICE gives you a secure network path to privately reachable EC2
-> instances so that you can use SSH without a public IP on the EC2.**
+> **Easy definition:** EICE gives you a controlled network path to a
+> private EC2 so you can use SSH/RDP.
 
 ------------------------------------------------------------------------
 
-# 2. First understand the problem
+## 2. The problem EICE solves
 
-Suppose we have:
+Example:
 
 ``` text
 VPC: 10.0.0.0/16
@@ -28,7 +27,7 @@ Private Subnet
 
 EC2
 Private IP: 10.0.2.10
-Public IP: NONE
+Public IP: None
 ```
 
 Your laptop is outside the VPC:
@@ -36,7 +35,7 @@ Your laptop is outside the VPC:
 ``` text
 Your Laptop
      |
- Internet
+  Internet
      |
      X
      |
@@ -44,558 +43,474 @@ Private EC2
 10.0.2.10
 ```
 
-Your laptop cannot simply SSH to:
-
-``` bash
-ssh ec2-user@10.0.2.10
-```
-
-because `10.0.2.10` is a private IP inside the VPC.
-
-We need a way to reach that private instance.
+You cannot simply SSH to `10.0.2.10` from the internet because it is a
+private address.
 
 ------------------------------------------------------------------------
 
-# 3. Traditional solution: Bastion Host
-
-Before EICE, a common design was:
-
-``` text
-                    VPC
-        ┌──────────────────────────┐
-        │                          │
-Laptop ──Internet──> Bastion       │
-        │             │            │
-        │             │ SSH        │
-        │             ↓            │
-        │         Private EC2      │
-        │                          │
-        └──────────────────────────┘
-```
-
-The Bastion has a public IP.
-
-You connect:
+## 3. Traditional solution: Bastion Host
 
 ``` text
 Laptop
-  ↓
-Bastion
-  ↓
+   |
+Internet
+   |
+Bastion Host
+   |
+   | SSH
+   v
 Private EC2
 ```
 
-### Problems with a Bastion
+The Bastion provides the jump point, but you must manage another EC2
+instance.
 
-You now have another server to:
-
--   deploy
--   patch
--   monitor
--   secure
--   pay for
--   manage SSH keys on
--   protect from attacks
-
-EICE can remove the need for this dedicated Bastion server.
+EICE can remove the need for that dedicated Bastion.
 
 ------------------------------------------------------------------------
 
-# 4. EICE solution
-
-With an EC2 Instance Connect Endpoint:
-
-``` text
-                 VPC
-       ┌──────────────────────┐
-       │                      │
-Laptop ──> EICE Endpoint      │
-       │          │           │
-       │          ↓           │
-       │      Private EC2     │
-       │      10.0.2.10       │
-       │                      │
-       └──────────────────────┘
-```
-
-The EC2 can remain:
-
--   private
--   without a public IP
--   without internet-facing SSH
-
-You can still establish an SSH connection to it through the endpoint.
-
-------------------------------------------------------------------------
-
-# 5. What exactly is the "Endpoint"?
-
-An endpoint is a managed network entry point.
-
-Think of EICE like a **controlled doorway into your VPC**.
-
-``` text
-Internet / Your Laptop
-          |
-          ↓
-    EICE Endpoint
-          |
-          ↓
-    Private EC2
-```
-
-It does NOT mean:
-
-``` text
-Laptop → Linux Kernel
-```
-
-That is an incorrect way to think about it.
-
-The normal operating-system path still exists.
-
-For SSH:
-
-``` text
-Laptop
-  ↓
-EICE
-  ↓
-Network connection
-  ↓
-EC2
-  ↓
-SSH server (sshd)
-  ↓
-Shell
-  ↓
-Operating System
-  ↓
-Linux Kernel
-```
-
-------------------------------------------------------------------------
-
-# 6. EICE vs SSM --- the most important difference
-
-This is where many people get confused.
-
-## SSM Session Manager
-
-SSM uses an agent installed/running on the EC2.
-
-``` text
-Laptop
-   ↓
-AWS Systems Manager
-   ↓
-SSM Agent
-   ↓
-EC2 Operating System
-   ↓
-Linux
-```
-
-The **SSM Agent runs inside the EC2 instance**.
-
-You are using an agent-based management mechanism.
-
-You don't need to open SSH port 22 for Session Manager.
-
-------------------------------------------------------------------------
-
-## EICE
-
-EICE is different.
-
-``` text
-Laptop
-   ↓
-EICE
-   ↓
-Network connection
-   ↓
-EC2
-   ↓
-SSH
-   ↓
-sshd
-   ↓
-Shell
-   ↓
-Linux
-```
-
-EICE provides the **network path for SSH**.
-
-### Easy memory trick
-
-> **SSM = Agent-based management**
-
-> **EICE = Network path for SSH**
-
-------------------------------------------------------------------------
-
-# 7. Does EICE directly communicate with the Linux kernel?
-
-No.
-
-This is an important distinction.
-
-EICE does NOT bypass the operating system.
-
-The flow is approximately:
+## 4. EICE solution
 
 ``` text
 Your Laptop
-     ↓
-EICE
-     ↓
-SSH
-     ↓
-sshd
-     ↓
+     |
+     | Authenticated tunnel
+     v
+EC2 Instance Connect Endpoint
+     |
+     | TCP traffic
+     v
+Private EC2
+10.0.2.10
+```
+
+The target EC2 can remain:
+
+``` text
+Public IP: None
+Private IP: 10.0.2.10
+```
+
+EICE can be used without requiring the VPC to have direct internet
+connectivity through an Internet Gateway.
+
+------------------------------------------------------------------------
+
+## 5. What exactly is the endpoint?
+
+Think of EICE as a **controlled doorway/network entry point into your
+VPC**.
+
+AWS creates a network interface for the endpoint in the selected subnet.
+Routing and security groups determine which target instances the
+endpoint can reach.
+
+The endpoint itself is not your application/server EC2.
+
+------------------------------------------------------------------------
+
+## 6. EICE does NOT directly talk to the Linux kernel
+
+This is an important correction.
+
+EICE does not bypass the operating system.
+
+For SSH, think of the path as:
+
+``` text
+Your Laptop
+     |
+     v
+EICE service / private tunnel
+     |
+     v
+EC2 network interface
+     |
+     v
+SSH server (sshd)
+     |
+     v
 Shell
-     ↓
-Linux OS
-     ↓
+     |
+     v
+Operating System
+     |
+     v
 Linux Kernel
 ```
 
-The kernel is still doing the actual low-level operating-system work.
+> **EICE solves the network-connectivity problem. It does not directly
+> communicate with the kernel.**
 
 ------------------------------------------------------------------------
 
-# 8. Why would I use EICE if SSM exists?
+## 7. EICE vs EC2 Instance Connect
 
-Because SSH is still useful.
+These names are easy to confuse.
 
-Some environments/tools/workflows expect SSH.
+### EC2 Instance Connect
 
-For example:
+EC2 Instance Connect can provide temporary SSH public-key access to a
+Linux instance.
 
--   engineers already use SSH
--   existing SSH-based workflows
--   troubleshooting with normal SSH tools
--   applications/tools that require SSH
--   organizations that want private instances but still want controlled
-    SSH access
-
-You can keep the instance private while still having SSH access.
-
-------------------------------------------------------------------------
-
-# 9. When should you use EICE?
-
-## Scenario 1 --- Private EC2 troubleshooting
-
-You have:
+Conceptually:
 
 ``` text
-Private EC2
-No Public IP
+IAM permissions
+      |
+      v
+EC2 Instance Connect
+      |
+      v
+Temporary SSH public key
+      |
+      v
+EC2 / sshd
 ```
 
-You need to troubleshoot:
+### EC2 Instance Connect Endpoint
 
-``` bash
-df -h
-free -m
-systemctl status nginx
-journalctl
-```
+EICE is the **network path/proxy** that lets you reach the private
+instance.
 
-Use EICE if you specifically want SSH access.
-
-------------------------------------------------------------------------
-
-## Scenario 2 --- No Bastion Host
-
-You don't want:
+They can be used together:
 
 ``` text
-Laptop
-  ↓
-Bastion
-  ↓
-Private EC2
-```
-
-You can use:
-
-``` text
-Laptop
-  ↓
+EC2 Instance Connect
+       +
 EICE
-  ↓
-Private EC2
+       =
+Temporary-key authentication
+through a private connectivity path
 ```
-
-This removes the dedicated Bastion server.
 
 ------------------------------------------------------------------------
 
-## Scenario 3 --- Production private servers
+## 8. Does EICE always require EC2 Instance Connect software?
 
-Example:
+**No.**
+
+This is an important distinction.
+
+If you use EICE with your **own SSH key and normal SSH authentication**,
+the EC2 Instance Connect package is not necessarily required.
+
+If you use the **EC2 Instance Connect temporary-key mechanism**, the
+required EC2 Instance Connect software must be available on the Linux
+instance.
+
+Many supported AWS AMIs already have it installed.
+
+------------------------------------------------------------------------
+
+## 9. EICE supports SSH and RDP
+
+EICE is not Linux-only.
 
 ``` text
-VPC
-│
-├── Public Subnet
-│
-│
-└── Private Subnet
-      │
-      ├── App Server 1
-      ├── App Server 2
-      └── App Server 3
+Linux EC2
+   |
+   +--> SSH
+
+Windows EC2
+   |
+   +--> RDP
 ```
 
-The application servers should not have public IPs.
+So the general idea is:
 
-If engineers occasionally need SSH access:
+> EICE provides private connectivity to an EC2 instance for management
+> protocols such as SSH or RDP.
+
+------------------------------------------------------------------------
+
+## 10. EICE vs SSM
+
+### SSM Session Manager
+
+SSM uses the **SSM Agent** running inside the EC2.
 
 ``` text
-Engineer
-   ↓
+Your Laptop
+     |
+     v
+AWS Systems Manager
+     |
+     v
+SSM Agent
+     |
+     v
+EC2 Operating System
+     |
+     v
+Shell
+```
+
+### EICE
+
+EICE provides a network path to the EC2.
+
+``` text
+Your Laptop
+     |
+     v
 EICE
-   ↓
-Private App Server
+     |
+     v
+Private network path
+     |
+     v
+EC2
+     |
+     v
+SSH / RDP
 ```
 
-This is a reasonable use case.
+### Easy memory trick
+
+> **SSM = agent-based management**
+
+> **EICE = network connectivity for SSH/RDP**
 
 ------------------------------------------------------------------------
 
-# 10. When EICE is NOT the best choice
+## 11. Why use EICE if SSM exists?
 
-Don't automatically use EICE just because it exists.
+If someone says:
 
-If your requirement is:
+> "I specifically need SSH access to this private server."
 
-> "I need secure administrator access to my EC2 and I don't specifically
-> need SSH."
+EICE is a natural fit.
 
-Then **SSM Session Manager is usually the first option to evaluate**.
+If someone says:
 
-SSM gives you:
+> "I only need a shell for administration and I don't specifically need
+> SSH."
 
--   no SSH port requirement
--   no Bastion
--   IAM-based access
--   centralized session control
--   CloudTrail integration for API activity
--   session logging options
--   easier access control using IAM
-
-So:
-
-``` text
-Need SSH specifically?
-        ↓
-       YES
-        ↓
-       EICE
-```
-
-But:
-
-``` text
-Need server administration?
-        ↓
-Don't specifically need SSH
-        ↓
-       SSM
-```
+SSM Session Manager is often the cleaner option to evaluate.
 
 ------------------------------------------------------------------------
 
-# 11. EICE vs Bastion vs SSM
+## 12. EICE vs Bastion vs SSM
 
   -----------------------------------------------------------------------
-  Feature           EICE              Bastion           SSM
+  Feature           EICE              Bastion           SSM Session
+                                                        Manager
   ----------------- ----------------- ----------------- -----------------
-  Private EC2 can   Yes               Yes               Yes
+  Target EC2 can    Yes               Yes               Yes
   remain private                                        
 
-  Public IP         No                No                No
-  required on                                           
-  target EC2                                            
+  Target public IP  No                No                No
+  required                                              
 
   Dedicated Bastion No                Yes               No
   required                                              
 
-  SSH access        Yes               Yes               No normal SSH
-                                                        required
+  SSH               Yes               Yes               Not required
+
+  RDP               Yes               Yes               Different SSM
+                                                        management
+                                                        workflows
 
   SSM Agent         No                No                Yes
   required                                              
 
-  IAM-based access  Yes, for          Depends on setup  Yes
-                    EICE/connection                     
-                    authorization                       
-
-  Port 22 on target Used for SSH      Used for SSH      Not required for
-                                                        Session Manager
-
-  Best for          Private SSH       Traditional SSH   Secure
-                    access            architecture      administration
+  IAM authorization Yes               Depends on design Yes
 
   Extra EC2 to      No                Yes               No
   manage                                                
+
+  Best fit          Private SSH/RDP   Traditional       Agent-based
+                                      jump-host design  administration
   -----------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
-# 12. Basic architecture
+## 13. Decision tree
 
-A simple architecture could look like:
+``` text
+Need to reach a private EC2?
+            |
+           YES
+            |
+            v
+Do you specifically need SSH/RDP?
+        /                   YES              NO
+       |                |
+       v                v
+     EICE               SSM
+```
+
+### Example
+
+"I need to SSH into my private Linux server."
+
+→ **EICE**
+
+"I need a secure shell for administration and don't care about SSH."
+
+→ **SSM Session Manager**
+
+------------------------------------------------------------------------
+
+## 14. Example architecture
 
 ``` text
                     AWS VPC
-        ┌──────────────────────────────┐
-        │                              │
-        │       Private Subnet         │
-        │                              │
-        │   ┌───────────────┐          │
-        │   │ EICE Endpoint │          │
-        │   └───────┬───────┘          │
-        │           │                  │
-        │           ↓                  │
-        │   ┌───────────────┐          │
-        │   │ Private EC2   │          │
-        │   │ 10.0.2.10     │          │
-        │   └───────────────┘          │
-        │                              │
-        └──────────────────────────────┘
-                    ↑
-                    |
-                 SSH access
-                    |
+        +----------------------------+
+        |                            |
+        |       Private Subnet       |
+        |                            |
+        |   +------------------+     |
+        |   | EICE Endpoint    |     |
+        |   | ENI              |     |
+        |   +--------+---------+     |
+        |            |               |
+        |            | TCP           |
+        |            v               |
+        |   +------------------+     |
+        |   | Private EC2      |     |
+        |   | 10.0.2.10        |     |
+        |   +------------------+     |
+        |                            |
+        +----------------------------+
+                     ^
+                     |
+              Authenticated
+                 tunnel
+                     |
                   Laptop
 ```
 
 ------------------------------------------------------------------------
 
-# 13. Important networking concepts
+## 15. Networking requirements
 
-EICE does not replace normal VPC networking.
+Creating EICE does not automatically make every EC2 reachable.
 
-You still need to think about:
+Consider:
 
 -   VPC
--   subnet
--   route table
--   security groups
--   network ACLs
--   EC2 networking
+-   endpoint subnet
+-   route tables
+-   target EC2 private IP
+-   target EC2 security group
+-   endpoint security group
 -   IAM permissions
+-   SSH/RDP configuration
+-   compatible IP address type
 
-The endpoint must be placed in a subnet and the network path must allow
-the connection to the target instance.
+The endpoint can reach instances in other subnets of the same VPC when
+routing permits it.
 
 ------------------------------------------------------------------------
 
-# 14. Security Group concept
+## 16. Security Groups
 
-Suppose:
+There are two important sides:
 
 ``` text
-EICE
-  ↓
-Private EC2
+EICE Security Group
+        |
+        | OUTBOUND
+        v
+Target EC2 Security Group
+        |
+        | INBOUND
+        v
+SSH 22 / RDP 3389
 ```
 
-The EC2 security group must allow the required SSH traffic from the
-appropriate source.
+For example, for SSH:
 
-For example, conceptually:
+### EICE security group
 
 ``` text
-Private EC2 Security Group
-
-Inbound:
+Outbound
 TCP 22
-Source: appropriate EICE/private source
+Destination: target EC2 security group
 ```
 
-Do NOT blindly use:
+### Target EC2 security group
+
+``` text
+Inbound
+TCP 22
+Source: EICE security group
+```
+
+Using a security-group reference is a clean design for many setups.
+
+AWS also documents different source-address behavior when client IP
+preservation is enabled or disabled.
+
+Do not blindly open:
 
 ``` text
 TCP 22
-Source: 0.0.0.0/0
+0.0.0.0/0
 ```
-
-That would expose SSH to the internet if the instance has a public path.
-
-The exact source rule should be designed according to your VPC
-architecture and AWS EICE configuration.
 
 ------------------------------------------------------------------------
 
-# 15. IAM permissions
+## 17. IAM permissions
 
-EICE is not just a networking feature.
+EICE is also an authorization feature.
 
-The person using it also needs the appropriate IAM permissions.
+The user needs the appropriate IAM permissions to use the endpoint.
 
-For example, permissions related to:
+If using EC2 Instance Connect to push a temporary SSH public key,
+permissions such as:
 
--   creating/describing EICE
--   initiating the EC2 Instance Connect connection
--   describing instances
--   using the relevant EC2 Instance Connect functionality
+``` text
+ec2-instance-connect:SendSSHPublicKey
+```
 
-The exact IAM policy should follow least privilege.
+are relevant.
 
-Don't give broad administrator access just to make EICE work.
+The `ec2:osuser` condition can restrict which operating-system user can
+receive the key.
+
+Follow least privilege.
 
 ------------------------------------------------------------------------
 
-# 16. Creating an EICE --- high-level process
+## 18. CloudTrail
 
-## Step 1 --- Have a VPC
+AWS states that **successful and unsuccessful EICE connection attempts
+are logged in CloudTrail**.
 
-Example:
-
-``` text
-VPC
-10.0.0.0/16
-```
-
-## Step 2 --- Have a private subnet
-
-Example:
+This is useful for auditing:
 
 ``` text
-Private Subnet
-10.0.2.0/24
+Who?
+When?
+Which endpoint?
+Which target?
+Successful or unsuccessful?
 ```
 
-## Step 3 --- Launch private EC2
+------------------------------------------------------------------------
 
-Example:
+## 19. Creating EICE from the console
 
-``` text
-Private IP:
-10.0.2.10
+High-level process:
 
-Public IP:
-None
-```
+### Step 1
 
-## Step 4 --- Create EC2 Instance Connect Endpoint
-
-In AWS Console:
+Go to:
 
 ``` text
 EC2
-  ↓
-Network & Security
-  ↓
-Endpoints
-  ↓
+  -> Network & Security
+  -> Endpoints
+```
+
+### Step 2
+
+Choose:
+
+``` text
 Create endpoint
 ```
 
@@ -605,64 +520,99 @@ Select:
 EC2 Instance Connect Endpoint
 ```
 
-Choose the VPC and subnet.
+### Step 3
 
-## Step 5 --- Configure security groups
+Select the VPC.
 
-Make sure the endpoint and target EC2 can communicate as required.
+### Step 4
 
-## Step 6 --- Connect
+Select the subnet where the endpoint network interface will be created.
 
-Go to:
+### Step 5
+
+Choose the IP address type:
+
+``` text
+IPv4
+Dualstack
+IPv6
+```
+
+The endpoint's IP type must be compatible with the target instance.
+
+### Step 6
+
+Configure the endpoint security group.
+
+### Step 7
+
+Create the endpoint.
+
+Wait until it becomes:
+
+``` text
+Available
+```
+
+Then it can be used.
+
+------------------------------------------------------------------------
+
+## 20. Connecting through the AWS Console
+
+For a supported target:
 
 ``` text
 EC2
-  ↓
+  |
 Instances
-  ↓
-Select private EC2
-  ↓
+  |
+Select instance
+  |
 Connect
-  ↓
+  |
 EC2 Instance Connect Endpoint
 ```
 
-Select the endpoint and connection settings.
+Select the appropriate endpoint and connection settings.
+
+For Linux, the connection can use SSH.
+
+For Windows, the supported EICE workflow can use RDP.
 
 ------------------------------------------------------------------------
 
-# 17. What happens during an EICE connection?
+## 21. Connecting with AWS CLI
 
-At a high level:
+AWS CLI v2 supports an EC2 Instance Connect SSH command that can
+explicitly use EICE.
 
-``` text
-1. You select EC2
-        ↓
-2. AWS verifies your permissions
-        ↓
-3. AWS uses the EICE
-        ↓
-4. Network connection is established
-        ↓
-5. SSH connection reaches EC2
-        ↓
-6. SSH server authenticates you
-        ↓
-7. You get a shell
+Example:
+
+``` bash
+aws ec2-instance-connect ssh   --instance-id i-1234567890example   --connection-type eice
 ```
 
-The important idea is:
+You can also specify your own private key:
 
-> **EICE solves the network reachability problem. SSH still handles the
-> actual SSH session.**
+``` bash
+aws ec2-instance-connect ssh   --instance-id i-1234567890example   --private-key-file /path/to/key.pem
+```
+
+The important option is:
+
+``` text
+--connection-type eice
+```
+
+This tells the command to use the EC2 Instance Connect Endpoint for the
+private connection.
 
 ------------------------------------------------------------------------
 
-# 18. EICE does NOT make your EC2 public
+## 22. EICE does not make the EC2 public
 
-This is a common misunderstanding.
-
-Suppose your EC2 has:
+Before:
 
 ``` text
 Private IP: 10.0.2.10
@@ -676,192 +626,174 @@ Private IP: 10.0.2.10
 Public IP: None
 ```
 
-It is still a private EC2.
-
-EICE gives authorized users a controlled way to connect to it.
+The EC2 remains private.
 
 ------------------------------------------------------------------------
 
-# 19. EICE vs Public IP
+## 23. Does the VPC need an Internet Gateway?
 
-### Public EC2
+Not necessarily for EICE connectivity.
 
-``` text
-Laptop
-   ↓
-Internet
-   ↓
-Public IP
-   ↓
-EC2
-```
+AWS states that EICE can allow connections from the internet without
+requiring the VPC to have direct internet connectivity through an
+Internet Gateway.
 
-Potentially exposes a network service to the internet.
-
-### Private EC2 + EICE
+But:
 
 ``` text
-Laptop
-   ↓
-EICE
-   ↓
-Private EC2
+EICE connectivity
+        !=
+EC2 internet access
 ```
 
-The EC2 itself doesn't need a public IP.
-
-This is one reason EICE is useful for private workloads.
+EICE does not automatically give your private EC2 general internet
+access.
 
 ------------------------------------------------------------------------
 
-# 20. EICE vs Bastion
+## 24. EICE is for management traffic
 
-## Bastion
+EICE is intended for **management traffic**, not high-volume data
+transfers.
+
+Good examples:
 
 ``` text
-Laptop
-   ↓
-Internet
-   ↓
+SSH
+RDP
+Troubleshooting
+Configuration checks
+Service status
+Logs
+```
+
+Bad fit:
+
+``` text
+Large file transfers
+Bulk data movement
+Application data pipelines
+```
+
+AWS states that high-volume data transfers through EICE are throttled.
+
+------------------------------------------------------------------------
+
+## 25. Important quotas
+
+Current AWS documentation lists:
+
+-   Maximum **5 EICE endpoints per AWS account per Region**
+-   Maximum **1 EICE endpoint per VPC**
+-   Maximum **1 EICE endpoint per subnet**
+-   Maximum **20 concurrent connections per endpoint**
+-   Maximum established TCP connection duration: **3,600 seconds / 1
+    hour**
+
+Check current AWS quotas before designing a large environment.
+
+------------------------------------------------------------------------
+
+## 26. Availability and subnet design
+
+A key design point:
+
+> You can create only **one EICE endpoint per VPC**.
+
+That means you should not design a normal architecture with multiple
+EICE endpoints in multiple AZs inside the same VPC.
+
+One endpoint can reach instances in other subnets of the same VPC when
+routing allows the traffic.
+
+Plan the endpoint subnet, routes, and security groups carefully.
+
+------------------------------------------------------------------------
+
+## 27. Cost
+
+AWS currently documents:
+
+> **There is no additional charge for using EC2 Instance Connect
+> Endpoints.**
+
+However, applicable cross-AZ data-transfer charges can apply when using
+an endpoint to connect to an instance in a different Availability Zone.
+
+Always verify current AWS pricing before production deployment.
+
+------------------------------------------------------------------------
+
+## 28. Production scenario
+
+Suppose:
+
+``` text
+                Internet
+                    |
+              Load Balancer
+                    |
+                    v
+              Private Subnet
+          +---------------------+
+          |                     |
+          | App Server 1        |
+          | App Server 2        |
+          | App Server 3        |
+          |                     |
+          +---------------------+
+```
+
+None of the application servers have public IPs.
+
+An engineer needs to troubleshoot App Server 2.
+
+### Old approach
+
+``` text
+Engineer
+   |
+   v
 Bastion
-   ↓
-Private EC2
+   |
+   v
+App Server 2
 ```
 
-You manage:
+### EICE approach
 
 ``` text
-Bastion EC2
-OS
-Patching
-SSH configuration
-Security
-Availability
-Cost
-```
-
-## EICE
-
-``` text
-Laptop
-   ↓
+Engineer
+   |
+   v
 EICE
-   ↓
-Private EC2
+   |
+   v
+App Server 2
 ```
 
-No dedicated Bastion EC2 is required.
-
-------------------------------------------------------------------------
-
-# 21. EICE vs SSM --- practical decision
-
-Use this decision tree:
+### SSM approach
 
 ``` text
-Do I need to access a private EC2?
-              |
-             YES
-              |
-              v
-Do I specifically need SSH?
-          /           \
-        YES            NO
-         |              |
-         v              v
-       EICE             SSM
-```
-
-### Example
-
-#### Developer needs SSH
-
-``` text
-"I need to SSH into my private server."
-
-             ↓
-
-            EICE
-```
-
-#### Operations team needs administration
-
-``` text
-"I need to access the shell,
-run commands and troubleshoot."
-
-             ↓
-
-            SSM
-```
-
-SSM is usually cleaner when SSH itself isn't a requirement.
-
-------------------------------------------------------------------------
-
-# 22. Real-world production scenario
-
-Suppose your company has:
-
-``` text
-AWS VPC
-│
-├── Public Subnet
-│   └── Load Balancer
-│
-└── Private Subnet
-    ├── App Server 1
-    ├── App Server 2
-    └── App Server 3
-```
-
-The application servers have:
-
-``` text
-No public IP
-```
-
-Normally:
-
-``` text
-Developer
-    ↓
-Bastion
-    ↓
-App Server
-```
-
-With EICE:
-
-``` text
-Developer
-    ↓
-EICE
-    ↓
-App Server
-```
-
-With SSM:
-
-``` text
-Developer
-    ↓
-SSM
-    ↓
+Engineer
+   |
+   v
+Systems Manager
+   |
+   v
 SSM Agent
-    ↓
-App Server
+   |
+   v
+App Server 2
 ```
 
-Which one should you choose?
-
-### If SSH is required:
+If SSH is specifically required:
 
 ``` text
 EICE
 ```
 
-### If normal server administration is enough:
+If normal administration is enough:
 
 ``` text
 SSM
@@ -869,183 +801,170 @@ SSM
 
 ------------------------------------------------------------------------
 
-# 23. Common misconceptions
+## 29. Windows scenario
 
-## Misconception 1
+Private Windows EC2:
 
-> "EICE directly talks to the Linux kernel."
+``` text
+Private IP: 10.0.3.20
+Public IP: None
+```
 
-No.
+Need RDP:
 
-The path is more like:
+``` text
+Laptop
+  |
+  v
+EICE
+  |
+  v
+RDP
+  |
+  v
+Windows EC2
+```
+
+This is another reason not to think of EICE as "only SSH."
+
+------------------------------------------------------------------------
+
+## 30. When EICE is the best fit
+
+EICE is a strong fit when:
+
+``` text
+✓ Instance is private
+✓ No public IP is desired
+✓ SSH/RDP is specifically required
+✓ You don't want a Bastion Host
+✓ IAM-controlled access is desired
+✓ Traffic is management traffic
+```
+
+------------------------------------------------------------------------
+
+## 31. When SSM is a better fit
+
+Evaluate SSM first when:
+
+``` text
+✓ You don't specifically need SSH/RDP
+✓ You want centralized session management
+✓ You want IAM-based access
+✓ You want to avoid SSH-key workflows
+✓ You want Session Manager logging/auditing
+✓ SSM prerequisites are already available
+```
+
+------------------------------------------------------------------------
+
+## 32. When a Bastion can still make sense
+
+EICE does not automatically make every Bastion architecture wrong.
+
+A Bastion may still exist because of:
+
+-   legacy SSH workflows
+-   third-party tools
+-   enterprise standards
+-   existing architecture
+-   specific network/security requirements
+
+But if the only reason for the Bastion is:
+
+> "We need a way to SSH into private EC2."
+
+then evaluate **EICE and SSM** before adding another EC2 server.
+
+------------------------------------------------------------------------
+
+## 33. Common mistakes
+
+### Mistake 1 --- "EICE gives the EC2 a public IP"
+
+Wrong.
+
+``` text
+EICE
+  ↓
+Private EC2
+```
+
+The EC2 can remain private.
+
+### Mistake 2 --- "EICE directly talks to the kernel"
+
+Wrong.
 
 ``` text
 EICE
  ↓
 Network
  ↓
-SSH
+SSH/RDP
  ↓
-sshd
- ↓
-Shell
- ↓
-Linux OS
+Operating System
  ↓
 Kernel
 ```
 
-------------------------------------------------------------------------
+### Mistake 3 --- "EICE is the same as SSM"
 
-## Misconception 2
-
-> "EICE gives the EC2 a public IP."
-
-No.
-
-The EC2 can remain private.
-
-------------------------------------------------------------------------
-
-## Misconception 3
-
-> "EICE replaces SSM."
-
-No.
-
-They solve related but different problems.
+Wrong.
 
 ``` text
-EICE → private SSH connectivity
+EICE → private network connectivity
 
-SSM → agent-based instance management
+SSM → agent-based management
 ```
 
-------------------------------------------------------------------------
+### Mistake 4 --- "EICE bypasses security groups"
 
-## Misconception 4
+Wrong.
 
-> "If I create EICE, any person can access my EC2."
+Security groups still control traffic.
 
-No.
+### Mistake 5 --- "I should open SSH to 0.0.0.0/0"
 
-IAM authorization, network controls, security groups, and SSH
-authentication still matter.
+Avoid this for private-management designs.
 
-------------------------------------------------------------------------
-
-# 24. Advantages of EICE
-
--   No public IP required on target EC2
--   No Bastion EC2 required
--   Useful for private subnet instances
--   Supports SSH-based workflows
--   Reduces Bastion infrastructure
--   Can be controlled using AWS IAM
--   Useful for troubleshooting private instances
+Use controlled sources and IAM authorization.
 
 ------------------------------------------------------------------------
 
-# 25. Limitations / things to remember
+## 34. Interview questions
 
-EICE is not a replacement for all forms of instance management.
+### Q1. What is EICE?
 
-You still need to consider:
+> EC2 Instance Connect Endpoint is an AWS-managed identity-aware TCP
+> proxy that creates a private tunnel to an EC2 instance, allowing
+> authorized users to connect to private instances using SSH or RDP
+> without requiring a public IP or Bastion Host.
 
--   IAM permissions
--   security groups
--   subnet/network configuration
--   SSH configuration
--   user authentication
--   endpoint availability/design
--   AWS service pricing where applicable
+### Q2. Does EICE make the EC2 public?
 
-If your organization doesn't need SSH, SSM may be a better operational
-choice.
+> No. The EC2 can remain private with only a private IP.
 
-------------------------------------------------------------------------
+### Q3. EICE vs SSM?
 
-# 26. Best-fit summary
+> EICE provides network connectivity for SSH/RDP, while SSM Session
+> Manager uses the SSM Agent for agent-based instance management.
 
-  Situation                                     Best choice
-  --------------------------------------------- -----------------------------------
-  Public EC2 and simple SSH                     Normal SSH / EC2 Instance Connect
-  Private EC2 + specifically need SSH           **EICE**
-  Private EC2 + don't need SSH                  **SSM Session Manager**
-  Existing traditional SSH architecture         Bastion may still be used
-  Want to eliminate Bastion                     **EICE or SSM**
-  Need centralized command/session management   **SSM**
-  Need an SSH-based tool/workflow               **EICE**
+### Q4. Do I need a Bastion with EICE?
 
-------------------------------------------------------------------------
+> No. One of EICE's main benefits is that it can remove the need for a
+> dedicated Bastion Host.
 
-# 27. One-minute explanation
+### Q5. Does EICE require the SSM Agent?
 
-If someone asks you in an interview:
+> No. EICE and SSM are separate mechanisms.
 
-### "What is EC2 Instance Connect Endpoint?"
+### Q6. Does EICE always require EC2 Instance Connect software?
 
-You can answer:
-
-> EC2 Instance Connect Endpoint is an AWS-managed endpoint that allows
-> authorized users to establish SSH connections to EC2 instances in
-> private subnets without giving those instances public IP addresses or
-> maintaining a Bastion Host.
-
-### "Why do we need it?"
-
-> A private EC2 cannot normally be reached directly from my laptop
-> because it has only a private IP. EICE provides a controlled network
-> path to the private instance so I can use SSH.
-
-### "How is it different from SSM?"
-
-> SSM uses the SSM Agent running inside the EC2 to provide management
-> access, while EICE provides a network path for SSH access. If I need
-> SSH specifically, EICE is useful; if I only need secure instance
-> administration, SSM is usually the better fit.
+> No. It depends on the authentication method. Normal SSH with your own
+> key does not necessarily require the EC2 Instance Connect package; the
+> temporary-key EC2 Instance Connect method does.
 
 ------------------------------------------------------------------------
 
-# 28. Final mental model
-
-Remember these three architectures:
-
-``` text
-1. PUBLIC EC2
-
-Laptop
-  ↓
-Internet
-  ↓
-Public EC2
-```
-
-``` text
-2. PRIVATE EC2 + EICE
-
-Laptop
-  ↓
-EICE
-  ↓
-SSH
-  ↓
-Private EC2
-```
-
-``` text
-3. PRIVATE EC2 + SSM
-
-Laptop
-  ↓
-AWS Systems Manager
-  ↓
-SSM Agent
-  ↓
-Private EC2
-```
-
-### The one line to remember:
-
-> **EICE gives you SSH connectivity to private EC2. SSM gives you
-> agent-based management of private EC2.**
