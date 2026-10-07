@@ -52,27 +52,7 @@ You will prove this in **Phase 8** by launching new instances *after* the rule e
 
 ### Architecture
 
-```
- You change a resource (S3 / EC2 / Security Group)
-                    |
-                    v
-      Configuration recorder  --->  Configuration Item (CI)
-                    |                        |
-                    |                        +--> S3 delivery bucket (history files)
-                    v
-        Config Rule evaluates the CI
-        COMPLIANT / NON_COMPLIANT
-                    |
-          (if NON_COMPLIANT)
-                    v
-   Remediation: manual click OR automatic
-                    |
-                    v
-   SSM Automation runbook (uses IAM "AutomationAssumeRole")
-                    |
-                    v
-   Resource is fixed -> Config records new CI -> rule re-evaluates -> COMPLIANT
-```
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/f3b40bac-76f8-4b49-948d-371ac6f1200e" />
 
 ### Concepts you will practice
 
