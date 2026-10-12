@@ -1,6 +1,4 @@
-# EC2 Instance Connect Endpoint (EICE): End-to-End Setup Guide
-
-Console-based, no steps skipped. Follow in order.
+# EC2 Instance Connect Endpoint (EICE):
 
 ---
 
@@ -317,41 +315,3 @@ ssh -i my-key.pem -p 2222 ec2-user@localhost
 
 ---
 
-## 11. Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Endpoint option is empty in the Connect page | Endpoint not **Available** yet, or wrong region/VPC | Wait for **Available**; confirm the same region and VPC |
-| `Failed to connect to your instance` | SG rules missing or wrong | Instance SG inbound 22 from `eice-endpoint-sg`; endpoint SG outbound 22 to `eice-instance-sg` |
-| `Access denied` / `not authorized` | Missing IAM actions | Re-check `eice-connect-policy` is attached; needs `OpenTunnel` and `SendSSHPublicKey` |
-| Connect works but login fails | Wrong username | `ec2-user` for Amazon Linux, `ubuntu` for Ubuntu |
-| Login fails on a custom AMI | EC2 Instance Connect package missing | Install the `ec2-instance-connect` package on the instance |
-| Instance has a NACL | NACL blocks 22 or ephemeral ports | Allow TCP 22 inbound and ephemeral ports outbound for the subnet |
-| Instance not in the endpoint's VPC | EICE only reaches instances in its own VPC | Create an endpoint in that VPC |
-
----
-
-## 12. Cleanup (Avoid Charges)
-
-Delete in this order:
-
-1. **EC2 > Instances:** select `eice-private-instance` > **Instance state** > **Terminate instance** > confirm. Wait for `Terminated`.
-2. **VPC > Endpoints:** select `eice-lab-endpoint` > **Actions** > **Delete VPC endpoints** > type `delete` > confirm. Wait until it is gone.
-3. **EC2 > Security Groups:**
-   1. Select `eice-endpoint-sg` and **Delete security groups**. If it errors, first remove the reference to it in `eice-instance-sg`'s inbound rule.
-   2. Select `eice-instance-sg` and **Delete security groups**.
-4. **VPC > Your VPCs:** select `eice-lab-vpc` > **Actions** > **Delete VPC**. This also removes the subnet and route table.
-5. **IAM > Policies:** (optional) detach and delete `eice-connect-policy`.
-
----
-
-## 13. Quick Summary Checklist
-
-- [ ] VPC with a private subnet created
-- [ ] `eice-instance-sg`: inbound SSH 22 from `eice-endpoint-sg`
-- [ ] `eice-endpoint-sg`: outbound SSH 22 to `eice-instance-sg`, no inbound
-- [ ] IAM identity has `OpenTunnel` + `SendSSHPublicKey`
-- [ ] Endpoint created and status **Available**
-- [ ] EC2 instance in private subnet, no public IP, Amazon Linux 2023
-- [ ] Connected via **EC2 Instance Connect Endpoint** in the console
-- [ ] Resources cleaned up
